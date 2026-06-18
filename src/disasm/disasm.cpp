@@ -5,6 +5,12 @@
 #include<unordered_map>
 #include "disasm.h"
 
+// the word size is 8 bits for the i8080 microprocessor
+#define INS_EXTRACT_REGISTER(word) word >> 3
+#define INS_EXTRACT_REGISTERPAIR(word) word >> 4
+
+#define INS_MAKE_ADDRESS(laddr, haddr) (haddr << 8) | laddr
+
 BinFile read_bin_file(const std::filesystem::path& path){
   std::ifstream bin(path, std::ios::binary | std::ios::ate);
   if(!bin){
@@ -80,31 +86,31 @@ int main(int argc, char* argv[]){
   std::stringstream decoded_ins{};
 
   for(uint16_t pc=0; pc < bin_size; pc++){
-    decoded_ins << boost::format("\n0x%04x: ") % pc; 
+    decoded_ins << boost::format("\n0x%04x: ") % pc;
     switch(bin[pc]) { 
       case 0x00: case 0x08: case 0x10: case 0x18: case 0x20: case 0x28: case 0x30:
       case 0x38: case 0xcb: case 0xd9: case 0xdd: case 0xed: case 0xfd:
         op_narg(decoded_ins, "nop"); break; // nop - 00000000
       case 0x01: case 0x11: case 0x21: case 0x31:
-        op_lxi(decoded_ins, bin[pc] >> 4, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // lxi rp, d16 - 00rp0001 d8 d8
+        op_lxi(decoded_ins, INS_EXTRACT_REGISTERPAIR(bin[pc]), INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // lxi rp, d16 - 00rp0001 d8 d8
       case 0x02: case 0x12:
-        op_rp(decoded_ins, "stax", bin[pc] >> 4); break; // stax rp - 00rp0010
+        op_rp(decoded_ins, "stax", INS_EXTRACT_REGISTERPAIR(bin[pc])); break; // stax rp - 00rp0010
       case 0x03: case 0x13: case 0x23: case 0x33:
-        op_rp(decoded_ins, "inx", bin[pc] >> 4); break; // inx rp - 00rp0011
+        op_rp(decoded_ins, "inx", INS_EXTRACT_REGISTERPAIR(bin[pc])); break; // inx rp - 00rp0011
       case 0x04: case 0x0c: case 0x14: case 0x1c: case 0x24: case 0x2c: case 0x34: case 0x3c:
-        op_rg(decoded_ins, "inr", bin[pc] >> 3); break; // inr r - 00ddd100
+        op_rg(decoded_ins, "inr", INS_EXTRACT_REGISTER(bin[pc])); break; // inr r - 00ddd100
       case 0x05: case 0x0d: case 0x15: case 0x1d: case 0x25: case 0x2d: case 0x35: case 0x3d:
-        op_rg(decoded_ins, "dcr", bin[pc] >> 3); break; // dcr r - 00ddd101
+        op_rg(decoded_ins, "dcr", INS_EXTRACT_REGISTER(bin[pc])); break; // dcr r - 00ddd101
       case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x36: case 0x3e:
-        op_mvi(decoded_ins, bin[pc] >> 3, bin[pc+1]); pc+=1; break; // mvi r, d8 - 00ddd110 d8
+        op_mvi(decoded_ins, INS_EXTRACT_REGISTER(bin[pc]), bin[pc+1]); pc+=1; break; // mvi r, d8 - 00ddd110 d8
       case 0x07:
         op_narg(decoded_ins, "rlc"); break; // rlc - 00000111
       case 0x09: case 0x19: case 0x29: case 0x39:
-        op_rp(decoded_ins, "dad", bin[pc] >> 4); break; // dad rp - 00rp1001
+        op_rp(decoded_ins, "dad", INS_EXTRACT_REGISTERPAIR(bin[pc])); break; // dad rp - 00rp1001
       case 0x0a: case 0x1a:
-        op_rp(decoded_ins, "ldax", bin[pc] >> 4); break; // ldax rp - 00rp1010
+        op_rp(decoded_ins, "ldax", INS_EXTRACT_REGISTERPAIR(bin[pc])); break; // ldax rp - 00rp1010
       case 0x0b: case 0x1b: case 0x2b: case 0x3b:
-        op_rp(decoded_ins, "dcx", bin[pc] >> 4); break; // dcx rp - 00rp1011
+        op_rp(decoded_ins, "dcx", INS_EXTRACT_REGISTERPAIR(bin[pc])); break; // dcx rp - 00rp1011
       case 0x0f:
         op_narg(decoded_ins, "rrc"); break; // rrc - 00001111
       case 0x17:
@@ -112,19 +118,19 @@ int main(int argc, char* argv[]){
       case 0x1f:
         op_narg(decoded_ins, "rar"); break; // rar - 00011111
       case 0x22:
-        op_addr(decoded_ins, "shld", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // shld addr - 00100010 laddr haddr
+        op_addr(decoded_ins, "shld", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // shld addr - 00100010 laddr haddr
       case 0x27:
         op_narg(decoded_ins, "daa"); break; // daa - 00100111
       case 0x2a:
-        op_addr(decoded_ins, "lhld", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // lhld addr - 00101010 laddr haddr
+        op_addr(decoded_ins, "lhld", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // lhld addr - 00101010 laddr haddr
       case 0x2f:
         op_narg(decoded_ins, "cma"); break; // cma - 00101111
       case 0x32:
-        op_addr(decoded_ins, "sta", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // sta addr - 00110010 laddr haddr
+        op_addr(decoded_ins, "sta", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // sta addr - 00110010 laddr haddr
       case 0x37:
         op_narg(decoded_ins, "stc"); break; // stc - 00110111
       case 0x3a:
-        op_addr(decoded_ins, "lda", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // lda addr - 00111010 laddr haddr
+        op_addr(decoded_ins, "lda", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // lda addr - 00111010 laddr haddr
       case 0x3f:
         op_narg(decoded_ins, "cmc"); break; // cmc - 00111111
       case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x46: case 0x47:
@@ -159,11 +165,11 @@ int main(int argc, char* argv[]){
       case 0xc1: case 0xd1: case 0xe1: case 0xf1: 
         op_rp(decoded_ins, "pop", (bin[pc] & 0b00110000) >> 4); break; // pop rp - 11rp0001
       case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
-        op_condition(decoded_ins, 'j', (bin[pc] & 0b00111000) >> 3, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
+        op_condition(decoded_ins, 'j', (bin[pc] & 0b00111000) >> 3, INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
       case 0xc3:
-        op_addr(decoded_ins, "jmp", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // jmp addr - 11000011 laddr haddr
+        op_addr(decoded_ins, "jmp", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // jmp addr - 11000011 laddr haddr
       case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
-        op_condition(decoded_ins, 'c', (bin[pc] & 0b00111000) >> 3, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
+        op_condition(decoded_ins, 'c', (bin[pc] & 0b00111000) >> 3, INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
       case 0xc5: case 0xd5: case 0xe5: case 0xf5:
         op_rp(decoded_ins, "push", (bin[pc] & 0b00110000) >> 4); break; // push rp - 11rp0101
       case 0xc6:
@@ -173,7 +179,7 @@ int main(int argc, char* argv[]){
       case 0xc9:
         op_addr(decoded_ins, "ret", 0x0); break; // ret - 11001001 (ADD RETURN ADDRESS FROM SP LATER)
       case 0xcd:
-        op_addr(decoded_ins, "call", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // call addr - 11001101 laddr haddr
+        op_addr(decoded_ins, "call", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // call addr - 11001101 laddr haddr
       case 0xce:
         op_d8(decoded_ins, "aci", bin[pc+1]); pc+=1; break; // aci d8 - 11001110 d8
       case 0xd3:
@@ -183,7 +189,7 @@ int main(int argc, char* argv[]){
       case 0xdb:
         op_d8(decoded_ins, "in", bin[pc+1]); pc+=1; break; // in port - 11011011 d8
       case 0xde:
-        op_addr(decoded_ins, "sbi", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // sbi addr - 11011110 laddr haddr
+        op_addr(decoded_ins, "sbi", INS_MAKE_ADDRESS(bin[pc+1], bin[pc+2])); pc += 2; break; // sbi addr - 11011110 laddr haddr
       case 0xe3:
         op_narg(decoded_ins, "xthl"); break; // xthl - 11100011
       case 0xe6:
