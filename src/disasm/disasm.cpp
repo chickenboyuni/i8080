@@ -159,11 +159,11 @@ int main(int argc, char* argv[]){
       case 0xc1: case 0xd1: case 0xe1: case 0xf1: 
         op_rp(decoded_ins, "pop", (bin[pc] & 0b00110000) >> 4); break; // pop rp - 11rp0001
       case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
-        op_condition(decoded_ins, 'j', (bin[pc] & 0b00110000) >> 4, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
+        op_condition(decoded_ins, 'j', (bin[pc] & 0b00111000) >> 3, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
       case 0xc3:
         op_addr(decoded_ins, "jmp", (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // jmp addr - 11000011 laddr haddr
       case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
-        op_condition(decoded_ins, 'c', (bin[pc] & 0b00110000) >> 4, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
+        op_condition(decoded_ins, 'c', (bin[pc] & 0b00111000) >> 3, (bin[pc+2] << 8) | bin[pc+1]); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
       case 0xc5: case 0xd5: case 0xe5: case 0xf5:
         op_rp(decoded_ins, "push", (bin[pc] & 0b00110000) >> 4); break; // push rp - 11rp0101
       case 0xc6:
