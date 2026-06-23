@@ -4,37 +4,13 @@
 #include<boost/format.hpp>
 #include<unordered_map>
 #include "disasm.h"
+#include "../common/binary_reader.h"
 
 // the word size is 8 bits for the i8080 microprocessor
 #define INS_EXTRACT_REGISTER(word) word >> 3
 #define INS_EXTRACT_REGISTERPAIR(word) word >> 4
 
 #define INS_MAKE_ADDRESS(laddr, haddr) (haddr << 8) | laddr
-
-BinFile read_bin_file(const std::filesystem::path& path){
-  std::ifstream bin(path, std::ios::binary | std::ios::ate);
-  if(!bin){
-    std::stringstream ss;
-    ss <<  path.string() << ": " << std::strerror(errno);
-    throw std::runtime_error(ss.str());
-  }
-
-  size_t bin_size = bin.tellg();
-  bin.seekg(0, std::ios::beg);
-
-  if(bin_size == 0){
-    return {}; /* i'll deal with you later */
-  }
-
-  std::unique_ptr<uint8_t[]> buf = std::make_unique<uint8_t[]>(bin_size);
-
-  bin.read(reinterpret_cast<char*>(buf.get()), bin_size);
-  bin.close();
-
-  BinFile bin_file {.bin_content=std::move(buf), .bin_size=bin_size};
-
-  return bin_file;
-} 
 
 const std::unordered_map<uint8_t, std::string> rp_strings = {
   {0b00, "b"},
@@ -81,7 +57,10 @@ int main(int argc, char* argv[]){
     return 1;
   }
 
-  auto [bin, bin_size] = read_bin_file(bin_path);
+  constexpr size_t memory_size = 1024 * 64;
+  std::unique_ptr<uint8_t[]> bin = std::make_unique<uint8_t[]>(memory_size);
+
+  size_t bin_size = read_bin_file(bin.get(), memory_size, bin_path);
 
   std::stringstream decoded_ins{};
 

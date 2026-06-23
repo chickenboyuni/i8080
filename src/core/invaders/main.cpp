@@ -1,0 +1,46 @@
+#include<memory>
+#include<iostream>
+
+#include "../../common/binary_reader.h"
+#include "../cpu.h"
+#include "invaders.h"
+
+size_t load_invaders_rom(std::unique_ptr<uint8_t[]>& rom_buffer, const std::filesystem::path& invaders_rom_path){
+  size_t rom_buffer_size{};
+  rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_H_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.h");
+  rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_G_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.g");
+  rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_F_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.f");
+  rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_E_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.e");
+
+  assert(rom_buffer_size <= INVADERS_ROM_SIZE);
+  return rom_buffer_size;
+}
+
+int main(int argc, char* argv[]){
+
+  if(argc > 2){
+    std::cerr << "Too many arguments: " << argc << std::endl;
+    return 1;
+  }
+
+  std::filesystem::path rom_path{};
+  if(argc == 2) { 
+    rom_path = argv[1] / std::filesystem::path{} ;
+  } else {
+    std::cerr << "Can you tell me the directory that has the space invader roms pretty please?" << '\n';
+    return 1;
+  }
+
+  std::unique_ptr<uint8_t[]> rom_file = std::make_unique<uint8_t[]>(INVADERS_ROM_SIZE);
+  size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
+
+  std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
+  bus->load_rom(rom_file, rom_file_size);
+
+  CPU cpu(std::move(bus));
+
+  // TEMPORARY: temporary loop until i start implementing cpu instructions :p
+  for(;cpu.get_pc() < rom_file_size;){
+    cpu.fetch_execute_instruction();
+  }
+}

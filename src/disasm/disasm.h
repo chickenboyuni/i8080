@@ -1,18 +1,10 @@
 #ifndef DISASM_H
 #define DISASM_H
 
-#include<filesystem>
 #include<memory>
 #include<cstdint>
 #include<fstream>
 #include<optional>
-
-struct BinFile {
-  std::unique_ptr<uint8_t[]> bin_content;
-  size_t bin_size{};
-};
-
-BinFile read_bin_file(const std::filesystem::path& path);
 
 void op_narg(std::stringstream& iss, const std::string& ins_name);
 void op_rp(std::stringstream& iss, const std::string& ins_name, uint8_t rp);
