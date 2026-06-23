@@ -35,7 +35,7 @@ public:
   uint8_t io_read(uint16_t addr) override {}
   void io_write(uint16_t addr, uint8_t data) override {}
 
-  void load_rom(std::unique_ptr<uint8_t[]>& rom_data, size_t rom_size);
+  void load_rom(uint8_t* rom_data, size_t rom_size);
 
 private: 
 

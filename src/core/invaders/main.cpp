@@ -5,13 +5,14 @@
 #include "../cpu.h"
 #include "invaders.h"
 
-size_t load_invaders_rom(std::unique_ptr<uint8_t[]>& rom_buffer, const std::filesystem::path& invaders_rom_path){
+size_t load_invaders_rom(uint8_t* rom_buffer, const std::filesystem::path& invaders_rom_path){
   size_t rom_buffer_size{};
   rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_H_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.h");
   rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_G_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.g");
   rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_F_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.f");
   rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_E_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.e");
 
+  // TEMPORARY: until log system is implemented
   assert(rom_buffer_size <= INVADERS_ROM_SIZE);
   return rom_buffer_size;
 }
@@ -32,10 +33,10 @@ int main(int argc, char* argv[]){
   }
 
   std::unique_ptr<uint8_t[]> rom_file = std::make_unique<uint8_t[]>(INVADERS_ROM_SIZE);
-  size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
+  size_t rom_file_size = load_invaders_rom(rom_file.get(), rom_path);
 
   std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
-  bus->load_rom(rom_file, rom_file_size);
+  bus->load_rom(rom_file.get(), rom_file_size);
 
   CPU cpu(std::move(bus));
 
