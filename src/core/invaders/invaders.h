@@ -39,8 +39,8 @@ public:
 
 private: 
 
-  std::unique_ptr<uint8_t[]> m_rom = std::make_unique<uint8_t[]>(INVADERS_ROM_SIZE);
-  std::unique_ptr<uint8_t[]> m_ram;
+  uint8_t m_rom[INVADERS_ROM_SIZE] {}; 
+  uint8_t m_ram[];
 };
 
 #endif /* SPACE_INVADERS_H */

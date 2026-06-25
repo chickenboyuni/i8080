@@ -13,7 +13,7 @@ uint8_t InvadersBus::memory_read(uint16_t addr) {
   assert(msn < 0x6 && "hey, the program is accessing memory out of bounds");
 
   /* 0000-1fff 8K ROM */
-  if(msn >= 0x0 && msn < 0x2){
+  if(msn < 0x2){
     return m_rom[addr];
   }
 
@@ -30,8 +30,9 @@ uint8_t InvadersBus::memory_read(uint16_t addr) {
     return m_ram[addr-0x2000];
   }
 
+  return 0x0;
 }
 
 void InvadersBus::load_rom(uint8_t* rom_data, size_t rom_size){
-  memcpy(m_rom.get(), rom_data, rom_size);
+  memcpy(m_rom, rom_data, rom_size);
 }

@@ -32,11 +32,11 @@ int main(int argc, char* argv[]){
     return 1;
   }
 
-  std::unique_ptr<uint8_t[]> rom_file = std::make_unique<uint8_t[]>(INVADERS_ROM_SIZE);
-  size_t rom_file_size = load_invaders_rom(rom_file.get(), rom_path);
+  uint8_t rom_file[INVADERS_ROM_SIZE] {};
+  size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
 
   std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
-  bus->load_rom(rom_file.get(), rom_file_size);
+  bus->load_rom(rom_file, rom_file_size);
 
   CPU cpu(std::move(bus));
 
