@@ -32,16 +32,21 @@ int main(int argc, char* argv[]){
     return 1;
   }
 
+#ifndef NDEBUG
+  // TEMPORARY: just so i can test and implement instructions one by one for now
+  uint8_t rom_file[INVADERS_ROM_SIZE] {0x01, 0x02, 0x02, 0xff};
+  size_t rom_file_size = INVADERS_ROM_SIZE;
+#else
   uint8_t rom_file[INVADERS_ROM_SIZE] {};
   size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
+#endif
 
   std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
   bus->load_rom(rom_file, rom_file_size);
 
   CPU cpu(std::move(bus));
 
-  // TEMPORARY: temporary loop until i start implementing cpu instructions :p
-  for(;cpu.get_pc() < rom_file_size;){
+  while(cpu.running()){
     cpu.fetch_execute_instruction();
   }
 }

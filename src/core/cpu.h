@@ -4,7 +4,10 @@
 #include<cstdint>
 #include<memory>
 
+#include "../common/utils.h"
 #include "bus.h"
+
+#define NUM_OF_INSTRUCTIONS 0x100
 
 #pragma pack(push, 1)
 typedef struct FlagBits {
@@ -40,11 +43,23 @@ public:
   CPU(std::unique_ptr<Bus>&& bus);
   ~CPU();
 
+  bool running(); 
+
+  uint8_t fetch_next_word();
   void fetch_execute_instruction();
-  // TEMPORARY: just for now so i can move forward, will change later
-  uint16_t get_pc() { return m_pc; };
+
+  /**
+   * @param  rp:  register pair bit pattern
+   * @param  bl:  low-order byte
+   * @param  bh:  high-order byte
+   */
+  void set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh);
+
+  void lxi(uint8_t rp);
 
 private:
+
+  bool m_running{true};
 
   std::unique_ptr<Bus> m_bus;
 
@@ -53,7 +68,7 @@ private:
 
   Regs m_rgs{};
   RegPairs m_rps{};
-  
+
 };
 
 #endif /* CPU_H */

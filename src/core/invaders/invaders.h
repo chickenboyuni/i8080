@@ -15,6 +15,7 @@ invaders.f 1000-17FF
 invaders.e 1800-1FFF
 */
 
+#define MAX_MEMORY 0x10000 // 64 KiB
 #define INVADERS_ROM_SIZE 1024 * 8 // 2 KiB
 
 #define INVADERS_H_START_ADDRESS 0x0000

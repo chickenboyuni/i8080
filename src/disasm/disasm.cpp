@@ -5,12 +5,8 @@
 #include<unordered_map>
 #include "disasm.h"
 #include "../common/binary_reader.h"
+#include "../common/utils.h"
 
-// the word size is 8 bits for the i8080 microprocessor
-#define INS_EXTRACT_REGISTER(word) word >> 3
-#define INS_EXTRACT_REGISTERPAIR(word) word >> 4
-
-#define INS_MAKE_ADDRESS(laddr, haddr) (haddr << 8) | laddr
 
 const std::unordered_map<uint8_t, std::string> rp_strings = {
   {0b00, "b"},
