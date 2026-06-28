@@ -3,7 +3,6 @@
 
 #include<memory>
 #include<cstring>
-#include<cassert>
 
 #include "../bus.h"
 

@@ -1,5 +1,6 @@
-#include <cassert>
+#include<iomanip>
 
+#include "../../common/logging.h"
 #include "invaders.h"
 
 InvadersBus::InvadersBus() = default;
@@ -9,8 +10,9 @@ uint8_t InvadersBus::memory_read(uint16_t addr) {
 
   uint16_t msn = addr >> 12; // most significant nibble
 
-  // TEMPORARY: just want a temporary assert till i figure out a proper logging system
-  assert(msn < MAX_MEMORY && "hey, the program is accessing memory out of bounds >:(");
+  if(msn >= 0x6){
+    LOG_WARNING("the program is trying to access memory out of the memory map") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+  }
 
   /* 0000-1fff 8K ROM */
   if(msn < 0x2){

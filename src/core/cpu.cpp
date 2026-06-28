@@ -2,6 +2,7 @@
 #include<iomanip>
 
 #include "cpu.h"
+#include "../common/logging.h"
 
 CPU::CPU(std::unique_ptr<Bus>&& bus) : m_bus(std::move(bus)) {
 

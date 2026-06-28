@@ -1,6 +1,5 @@
-#include <cassert>
-
 #include "binary_reader.h"
+#include "logging.h"
 
 size_t read_bin_file(uint8_t* buffer, size_t buffer_size, const std::filesystem::path& path){
   std::ifstream bin(path, std::ios::binary | std::ios::ate);
@@ -17,8 +16,9 @@ size_t read_bin_file(uint8_t* buffer, size_t buffer_size, const std::filesystem:
     return 0; /* i'll deal with you later */
   }
 
-  // TEMPORARY: until log system is implemented
-  assert(buffer_size >= bin_size && "Passed in buffer size can't be smaller than the binary file being copied into it >:(");
+  if(buffer_size < bin_size) {
+    PANIC("terminating program, passed in buffer is smaller than the binary file being read into it");
+  }
   bin.read(reinterpret_cast<char*>(buffer), bin_size);
   bin.close();
 
