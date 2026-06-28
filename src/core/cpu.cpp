@@ -28,8 +28,10 @@ void CPU::fetch_execute_instruction() {
     case 0x01: case 0x11: case 0x21: case 0x31:
       lxi(INS_EXTRACT_REGISTERPAIR(ins)); break; // lxi rp, d16 - 00rp0001 d8 d8
     default:
-       std::cerr << "unimplemented instruction: " << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) << '\n';
-       m_running=false;
+      std::stringstream ss;
+      ss << "unimplemented instruction \e[1m0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) 
+         << "\e[0m at address \e[1m0x" << std::setfill('0') << std::setw(4) << m_pc-1;
+      PANIC(ss.str());
   }
 }
 
