@@ -30,7 +30,7 @@ public:
   ~InvadersBus();
   
   uint8_t memory_read(uint16_t addr) override;
-  void memory_write(uint16_t addr, uint8_t data) override {}
+  void memory_write(uint16_t addr, uint8_t data) override;
 
   uint8_t io_read(uint16_t addr) override {}
   void io_write(uint16_t addr, uint8_t data) override {}

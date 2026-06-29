@@ -3,6 +3,7 @@
 
 #include<cstdint>
 #include<memory>
+#include<map>
 
 #include "../common/utils.h"
 #include "bus.h"
@@ -54,8 +55,21 @@ public:
    * @param  bh:  high-order byte
    */
   void set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh);
+  uint16_t get_register_pair(uint8_t rp);
+
+  /**
+   * @param  rg:  register bit pattern
+   * @param  data:  data byte
+   */
+  void set_register(uint8_t rg, uint8_t data);
+  uint8_t get_register(uint8_t rg);
 
   void lxi(uint8_t rp);
+  void stax(uint8_t rp);
+
+  void mvi(uint8_t rg);
+
+  void lda();
 
 private:
 
@@ -64,11 +78,26 @@ private:
   std::unique_ptr<Bus> m_bus;
 
   uint16_t m_pc{};
-  uint16_t m_sp{};
 
   Regs m_rgs{};
   RegPairs m_rps{};
 
+  std::map<uint8_t, uint16_t*> m_rps_map = {
+    {0b00, &m_rps.bc},
+    {0b01, &m_rps.de},
+    {0b10, &m_rps.hl},
+    {0b11, &m_rps.sp},
+  };
+
+  std::map<uint8_t, uint8_t*> m_rgs_map = {
+    {0b111, &m_rgs.a},
+    {0b000, &m_rgs.b},
+    {0b001, &m_rgs.c},
+    {0b010, &m_rgs.d},
+    {0b011, &m_rgs.e},
+    {0b100, &m_rgs.h},
+    {0b101, &m_rgs.l},
+  };
 };
 
 #endif /* CPU_H */

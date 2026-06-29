@@ -20,6 +20,7 @@ uint8_t CPU::fetch_next_word(){
 
 void CPU::fetch_execute_instruction() {
   uint8_t ins = fetch_next_word();
+  LOG_DEBUG("ins: 0x") << std::hex << (uint16_t)ins << " - bc register pair: " << std::hex << m_rps.bc << " - accumulator: " << std::hex << (uint16_t)m_rgs.a;
 
   switch(ins) {
     case 0x00: case 0x08: case 0x10: case 0x18: case 0x20: case 0x28: case 0x30:
@@ -27,6 +28,12 @@ void CPU::fetch_execute_instruction() {
        break; // nop - 00000000 or undefined behaviour so will be left unimplemented
     case 0x01: case 0x11: case 0x21: case 0x31:
       lxi(INS_EXTRACT_REGISTERPAIR(ins)); break; // lxi rp, d16 - 00rp0001 d8 d8
+    case 0x02: case 0x12:
+      stax(INS_EXTRACT_REGISTERPAIR(ins)); break; // stax rp - 00rp0010
+    case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x36: case 0x3e:
+      mvi(INS_EXTRACT_REGISTER(ins)); break; // mvi r, d8 - 00ddd110 d8
+    case 0x3a:
+      lda(); break; // lda addr - 00111010 laddr haddr
     default:
       std::stringstream ss;
       ss << "unimplemented instruction \e[1m0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) 
@@ -37,16 +44,19 @@ void CPU::fetch_execute_instruction() {
 
 void CPU::set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh){
   uint16_t data = (bh << 8) | bl;
-  switch(rp) {
-    case 0b00:
-      m_rps.bc = data; break;
-    case 0b01:
-      m_rps.de = data; break;
-    case 0b10:
-      m_rps.hl = data; break;
-    case 0b11:
-      m_rps.sp = data; break;
-  }
+  *(m_rps_map.at(rp)) = data;
+}
+
+uint16_t CPU::get_register_pair(uint8_t rp){
+  return *(m_rps_map.at(rp));
+}
+
+void CPU::set_register(uint8_t rg, uint8_t data) {
+  *(m_rgs_map.at(rg)) = data;
+}
+
+uint8_t CPU::get_register(uint8_t rg) {
+  return *(m_rgs_map.at(rg));
 }
 
 void CPU::lxi(uint8_t rp){
@@ -55,4 +65,18 @@ void CPU::lxi(uint8_t rp){
   set_register_pair(rp, d1, d2);
 }
 
+void CPU::stax(uint8_t rp){
+  m_bus->memory_write(get_register_pair(rp), m_rgs.a);
+}
+
+void CPU::mvi(uint8_t rg){
+  uint8_t d = fetch_next_word();
+  set_register(rg, d);
+}
+
+void CPU::lda(){
+  uint8_t d1 = fetch_next_word();
+  uint8_t d2 = fetch_next_word();
+  m_rgs.a = m_bus->memory_read(INS_MAKE_ADDRESS(d1, d2)); 
+}
 

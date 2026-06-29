@@ -37,7 +37,13 @@ int main(int argc, char* argv[]){
   try {
     #ifndef NDEBUG
       // TEMPORARY: just so i can test and implement instructions one by one for now
-      uint8_t rom_file[INVADERS_ROM_SIZE] {0x01, 0x02, 0x02, 0xff};
+      // small test for implemented instructions 
+      uint8_t rom_file[INVADERS_ROM_SIZE] {0x3e, 0x12, // mvi a, 0x12
+                                           0x01, 0x56, 0x34, // lxi bc, 0x3456
+                                           0x02, // stax bc
+                                           0x3e, 0x00, // mvi a, 0x00
+                                           0x3a, 0x56, 0x34, // lda 0x3456
+                                           0xff};
       size_t rom_file_size = INVADERS_ROM_SIZE;
     #else
       uint8_t rom_file[INVADERS_ROM_SIZE] {};
