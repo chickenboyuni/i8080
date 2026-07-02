@@ -5,6 +5,17 @@
 #include<cstdint>
 #include<fstream>
 #include<optional>
+#include<array>
+#include<filesystem>
+
+#define MAX_ROM_SIZE 1024 * 2 // 2 KiB
+
+typedef struct DisassembledInstruction {
+  std::string ins;
+  uint8_t size;
+} DisassembledInstruction;
+
+size_t disassemble_from_file(const std::filesystem::path& bin_path);
 
 void op_narg(std::stringstream& iss, const std::string& ins_name);
 void op_rp(std::stringstream& iss, const std::string& ins_name, uint8_t rp);
@@ -15,5 +26,7 @@ void op_condition(std::stringstream& iss, const char ins_name, uint8_t cf, const
 void op_lxi(std::stringstream& ins_ss, uint8_t rp, uint16_t data);
 void op_mvi(std::stringstream& ins_ss, uint8_t rg, uint8_t data);
 void op_mov(std::stringstream& ins_ss, uint8_t r1, uint8_t r2);
+
+#include "disasm_rom.h"
 
 #endif /* DISASM_H */

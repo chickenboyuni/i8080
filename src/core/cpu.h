@@ -20,7 +20,7 @@ typedef struct FlagBits {
 } FlagBits;
 #pragma pack(pop)
 
-typedef struct Regs {
+typedef struct Registers {
   uint8_t a;
   uint8_t b;
   uint8_t c;
@@ -28,16 +28,23 @@ typedef struct Regs {
   uint8_t e;
   uint8_t h;
   uint8_t l;
-} Regs;
+} Registers;
 
-typedef struct RegPairs {
+typedef struct RegisterPairs {
   uint16_t bc;
   uint16_t de;
   uint16_t hl;
   uint16_t sp;
 
   FlagBits psw;
-} RegPairs;
+} RegisterPairs;
+
+typedef struct CpuState {
+  uint16_t pc;
+
+  Registers rgs;
+  RegisterPairs rps;
+} CpuState;
 
 class CPU {
 public:
@@ -46,6 +53,7 @@ public:
 
   bool running(); 
 
+  void reset();
   uint8_t fetch_next_word();
   void fetch_execute_instruction();
 
@@ -64,6 +72,8 @@ public:
   void set_register(uint8_t rg, uint8_t data);
   uint8_t get_register(uint8_t rg);
 
+  CpuState get_cpu_state();
+
   void lxi(uint8_t rp);
   void stax(uint8_t rp);
 
@@ -79,8 +89,8 @@ private:
 
   uint16_t m_pc{};
 
-  Regs m_rgs{};
-  RegPairs m_rps{};
+  Registers m_rgs{};
+  RegisterPairs m_rps{};
 
   std::map<uint8_t, uint16_t*> m_rps_map = {
     {0b00, &m_rps.bc},
@@ -98,6 +108,7 @@ private:
     {0b100, &m_rgs.h},
     {0b101, &m_rgs.l},
   };
+
 };
 
 #endif /* CPU_H */

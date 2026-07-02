@@ -14,13 +14,21 @@ bool CPU::running() {
   return m_running;
 }
 
+void CPU::reset() {
+  m_running = true;
+
+  m_pc = 0;
+
+  m_rgs = (const Registers){ };
+  m_rps = (const RegisterPairs){ };
+}
+
 uint8_t CPU::fetch_next_word(){
   return m_bus->memory_read(m_pc++);
 }
 
 void CPU::fetch_execute_instruction() {
   uint8_t ins = fetch_next_word();
-  LOG_DEBUG("ins: 0x") << std::hex << (uint16_t)ins << " - bc register pair: " << std::hex << m_rps.bc << " - accumulator: " << std::hex << (uint16_t)m_rgs.a;
 
   switch(ins) {
     case 0x00: case 0x08: case 0x10: case 0x18: case 0x20: case 0x28: case 0x30:
@@ -30,7 +38,7 @@ void CPU::fetch_execute_instruction() {
       lxi(INS_EXTRACT_REGISTERPAIR(ins)); break; // lxi rp, d16 - 00rp0001 d8 d8
     case 0x02: case 0x12:
       stax(INS_EXTRACT_REGISTERPAIR(ins)); break; // stax rp - 00rp0010
-    case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x36: case 0x3e:
+    case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x36: case 0x3e: //0x36 is unhandled MVI M, D8
       mvi(INS_EXTRACT_REGISTER(ins)); break; // mvi r, d8 - 00ddd110 d8
     case 0x3a:
       lda(); break; // lda addr - 00111010 laddr haddr
@@ -57,6 +65,14 @@ void CPU::set_register(uint8_t rg, uint8_t data) {
 
 uint8_t CPU::get_register(uint8_t rg) {
   return *(m_rgs_map.at(rg));
+}
+
+CpuState CPU::get_cpu_state() {
+  CpuState cpu_state{};
+  cpu_state.pc = m_pc;
+  cpu_state.rgs = m_rgs;
+  cpu_state.rps = m_rps;
+  return cpu_state;
 }
 
 void CPU::lxi(uint8_t rp){
