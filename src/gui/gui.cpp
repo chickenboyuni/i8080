@@ -114,8 +114,8 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, bool& debugger_step, bo
         ImGui::TableSetupColumn("Instruction Binary", ImGuiTableColumnFlags_WidthFixed, 150.0f);
         ImGui::TableSetupColumn("Instruction", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 
-        std::array<DisassembledInstruction, INVADERS_ROM_SIZE> disassembled_instructions {};
-        size_t disassembled_rom_size = disassemble_rom<INVADERS_ROM_SIZE>(disassembled_instructions, instructions, instructions_size);
+        DisassembledInstruction disassembled_instructions[INVADERS_ROM_SIZE] {};
+        size_t disassembled_rom_size = disassemble_rom(disassembled_instructions, INVADERS_ROM_SIZE, instructions, instructions_size);
 
         size_t i,j;
         for(i=0, j=0; i < disassembled_rom_size; i++) {

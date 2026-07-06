@@ -68,8 +68,10 @@ private:
 
 #ifndef NDEBUG
   #define LOG_DEBUG(msg) Log(LogLevel::DEBUG, msg, __FILE__, __FUNCTION__, __LINE__)
+  #define LOG_DEBUG_ERROR(msg) Log(LogLevel::ERROR, msg, __FILE__, __FUNCTION__, __LINE__)
 #else
   #define LOG_DEBUG(_) do {} while(0)
+  #define LOG_DEBUG_ERROR(_) do {} while(0)
 #endif
 
 #define LOG_INFO(msg) Log(LogLevel::INFO, msg, __FILE__, __FUNCTION__, __LINE__)
