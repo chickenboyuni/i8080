@@ -92,14 +92,14 @@ private:
   Registers m_rgs{};
   RegisterPairs m_rps{};
 
-  std::map<uint8_t, uint16_t*> m_rps_map = {
+  const std::map<uint8_t, uint16_t*> m_rps_map = {
     {0b00, &m_rps.bc},
     {0b01, &m_rps.de},
     {0b10, &m_rps.hl},
     {0b11, &m_rps.sp},
   };
 
-  std::map<uint8_t, uint8_t*> m_rgs_map = {
+  const std::map<uint8_t, uint8_t*> m_rgs_map = {
     {0b111, &m_rgs.a},
     {0b000, &m_rgs.b},
     {0b001, &m_rgs.c},
