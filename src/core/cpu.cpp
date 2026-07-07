@@ -21,6 +21,8 @@ void CPU::reset() {
 
   m_rgs = (const Registers){ };
   m_rps = (const RegisterPairs){ };
+
+  m_bus->reset();
 }
 
 uint8_t CPU::fetch_next_word(){

@@ -15,7 +15,8 @@ invaders.e 1800-1FFF
 */
 
 #define MAX_MEMORY 0x10000 // 64 KiB
-#define INVADERS_ROM_SIZE 1024 * 8 // 2 KiB
+#define INVADERS_ROM_SIZE 1024 * 8 // 8 KiB
+#define INVADERS_RAM_SIZE 1024 * 8 // 1 KiB RAM and 7 KiB VRAM
 
 #define INVADERS_H_START_ADDRESS 0x0000
 #define INVADERS_G_START_ADDRESS 0x0800
@@ -35,12 +36,16 @@ public:
   uint8_t io_read(uint16_t addr) override {}
   void io_write(uint16_t addr, uint8_t data) override {}
 
+  void reset() override {
+    memset(m_ram, 0, sizeof(m_ram));
+  }
+
   void load_rom(uint8_t* rom_data, size_t rom_size);
 
 private: 
 
-  uint8_t m_rom[INVADERS_ROM_SIZE] {}; 
-  uint8_t m_ram[];
+  uint8_t m_rom[INVADERS_ROM_SIZE]; 
+  uint8_t m_ram[INVADERS_RAM_SIZE];
 };
 
 #endif /* SPACE_INVADERS_H */

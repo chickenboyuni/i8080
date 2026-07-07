@@ -3,6 +3,9 @@
 #include "../../common/logging.h"
 #include "invaders.h"
 
+constexpr unsigned int ram_offset = INVADERS_ROM_SIZE;
+constexpr unsigned int ram_mirror_offset = INVADERS_ROM_SIZE + INVADERS_RAM_SIZE;
+
 InvadersBus::InvadersBus() = default;
 InvadersBus::~InvadersBus() = default;
 
@@ -24,12 +27,12 @@ uint8_t InvadersBus::memory_read(uint16_t addr) {
    2400-3fff 7K vRAM 
   */
   if(msn >= 0x2 && msn < 0x4){ 
-    return m_ram[addr];
+    return m_ram[addr-ram_offset];
   }
 
   /* 4000- RAM mirror */
   if(msn >= 0x4 && msn < 0x6){
-    return m_ram[addr-0x2000];
+    return m_ram[addr-ram_mirror_offset];
   }
 
   return 0x0;
@@ -53,12 +56,12 @@ void InvadersBus::memory_write(uint16_t addr, uint8_t data) {
    2400-3fff 7K vRAM 
   */ 
   if(msn >= 0x2 && msn < 0x4){ 
-    m_ram[addr] = data;
+    m_ram[addr-ram_offset] = data;
   }
 
   /* 4000- RAM mirror */
   if(msn >= 0x4 && msn < 0x6){
-    m_ram[addr-0x2000] = data;
+    m_ram[addr-ram_mirror_offset] = data;
   }
 }
 

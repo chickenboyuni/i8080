@@ -15,6 +15,8 @@ public:
   virtual uint8_t io_read(uint16_t addr) = 0;
   virtual void io_write(uint16_t addr, uint8_t data) = 0;
 
+  virtual void reset() = 0;
+
 };
 
 #endif /* BUS_H */
