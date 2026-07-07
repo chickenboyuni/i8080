@@ -133,7 +133,7 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, bool& debugger_step, bo
           ImGui::TableNextColumn();
 
           ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-          switch(disassembled_instructions[i].size){
+          switch(disassembled_instructions[i].byte_count){
             case 1: sprintf(buf, "%02x", instructions[j]); break;
             case 2: sprintf(buf, "%02x %02x", instructions[j], instructions[j+1]); break;
             case 3: sprintf(buf, "%02x %02x %02x", instructions[j], instructions[j+1], instructions[j+2]); break;
@@ -147,12 +147,12 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, bool& debugger_step, bo
           ImGui::TableNextColumn();
 
           ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-          ImGui::Selectable(disassembled_instructions[i].ins.c_str(), j == cpu_state.pc, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+          ImGui::Selectable(disassembled_instructions[i].ins_str, j == cpu_state.pc, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
           if(j == cpu_state.pc && follow_execution) { 
               ImGui::SetScrollHereY(); 
           }
 
-          j += disassembled_instructions[i].size;
+          j += disassembled_instructions[i].byte_count;
 
           ImGui::PopID();
 
