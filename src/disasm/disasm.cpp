@@ -110,7 +110,7 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
       case 0x76:
         op_narg(disassembled_instruction_str, "hlt"); break; // hlt - 01110110
       case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x86: case 0x87:
-        op_rg(disassembled_instruction_str, "add", rom[pc] & 0b00000111); break; // add r - 10000sss
+        op_rg(disassembled_instruction_str, "add", rom[pc] & 0b00000111); break; // add r - 1/000sss
       case 0x88: case 0x89: case 0x8a: case 0x8b: case 0x8c: case 0x8d: case 0x8e: case 0x8f:
         op_rg(disassembled_instruction_str, "adc", rom[pc] & 0b00000111); break; // adc r - 10001sss
       case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0x97:
@@ -128,15 +128,15 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
       case 0xc0: case 0xc8: case 0xd0: case 0xd8: case 0xe0: case 0xe8: case 0xf0: case 0xf8:
         op_condition(disassembled_instruction_str, 'r', (rom[pc] & 0b00111000) >> 3); break; // rcondition - 11ccc000
       case 0xc1: case 0xd1: case 0xe1: case 0xf1: 
-        op_rp(disassembled_instruction_str, "pop", (rom[pc] & 0b00110000) >> 4); break; // pop rp - 11rp0001
+        op_rp(disassembled_instruction_str, "pop", INS_EXTRACT_REGISTERPAIR(rom[pc])); break; // pop rp - 11rp0001
       case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
-        op_condition(disassembled_instruction_str, 'j', (rom[pc] & 0b00111000) >> 3, INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
+        op_condition(disassembled_instruction_str, 'j', INS_EXTRACT_CONDITION(rom[pc]), INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
       case 0xc3:
         op_addr(disassembled_instruction_str, "jmp", INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // jmp addr - 11000011 laddr haddr
       case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
-        op_condition(disassembled_instruction_str, 'c', (rom[pc] & 0b00111000) >> 3, INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
+        op_condition(disassembled_instruction_str, 'c', INS_EXTRACT_CONDITION(rom[pc]), INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
       case 0xc5: case 0xd5: case 0xe5: case 0xf5:
-        op_rp(disassembled_instruction_str, "push", (rom[pc] & 0b00110000) >> 4); break; // push rp - 11rp0101
+        op_rp(disassembled_instruction_str, "push", INS_EXTRACT_REGISTERPAIR(rom[pc])); break; // push rp - 11rp0101
       case 0xc6:
         op_d8(disassembled_instruction_str, "adi", rom[pc+1]); pc += 1; break; // adi d8 - 11000110 d8
       case 0xc7: case 0xcf: case 0xd7: case 0xdf: case 0xe7: case 0xef: case 0xf7: case 0xff:
