@@ -44,6 +44,7 @@ typedef struct CpuState {
 
   Registers rgs;
   RegisterPairs rps;
+
 } CpuState;
 
 class CPU {
@@ -54,6 +55,10 @@ public:
   bool running(); 
 
   void reset();
+
+  CpuState get_cpu_state();
+  Bus* get_bus();
+
   uint8_t fetch_next_word();
   void fetch_execute_instruction();
 
@@ -71,8 +76,6 @@ public:
    */
   void set_register(uint8_t rg, uint8_t data);
   uint8_t get_register(uint8_t rg);
-
-  CpuState get_cpu_state();
 
   void lxi(uint8_t rp);
   void stax(uint8_t rp);

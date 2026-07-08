@@ -66,25 +66,34 @@ int main(int argc, char* argv[]){
     bool step_through_cpu {false};
     try {
       CpuState cpu_state {};
+      MemoryState memory_state {};
 
+// TODO: make a seperate function for update frame specific to debugger and clean up some of this mess
+#ifndef NDEBUG
       while(cpu.running()){
         cpu_state = cpu.get_cpu_state();
+        memory_state = dynamic_cast<InvadersBus*>(cpu.get_bus())->get_memory_state();
 
         // update_frame() returns 1 on exiting gui
-        if(igui->update_frame(cpu_state, step_through_cpu, debug_cpu_running, rom_file, rom_file_size)){
+        if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
           gui_running = false;
           break;
         }
 
-#ifndef NDEBUG
         if(step_through_cpu || debug_cpu_running) {
           cpu.fetch_execute_instruction();
           step_through_cpu = false;
         }
 #else
+      while(cpu.running()){
+
+        // update_frame() returns 1 on exiting gui
+        if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
+          gui_running = false;
+          break;
+        }
         cpu.fetch_execute_instruction();
 #endif
-
       }
     } 
 

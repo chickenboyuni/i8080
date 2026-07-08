@@ -9,6 +9,13 @@ constexpr unsigned int ram_mirror_offset = INVADERS_ROM_SIZE + INVADERS_RAM_SIZE
 InvadersBus::InvadersBus() = default;
 InvadersBus::~InvadersBus() = default;
 
+MemoryState InvadersBus::get_memory_state() {
+  MemoryState memory_state {};
+  memcpy(memory_state.rom_state, m_rom, INVADERS_ROM_SIZE);
+  memcpy(memory_state.ram_state, m_ram, INVADERS_RAM_SIZE);
+  return memory_state;
+}
+
 uint8_t InvadersBus::memory_read(uint16_t addr) {
 
   uint16_t msn = addr >> 12; // most significant nibble

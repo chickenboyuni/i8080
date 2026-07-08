@@ -23,6 +23,11 @@ invaders.e 1800-1FFF
 #define INVADERS_F_START_ADDRESS 0x1000
 #define INVADERS_E_START_ADDRESS 0x1800
 
+typedef struct MemoryState {
+  uint8_t rom_state[INVADERS_ROM_SIZE]; 
+  uint8_t ram_state[INVADERS_RAM_SIZE];
+} MemoryState;
+
 class InvadersBus : public Bus {
 
 public:
@@ -42,6 +47,7 @@ public:
 
   void load_rom(uint8_t* rom_data, size_t rom_size);
 
+  MemoryState get_memory_state();
 private: 
 
   uint8_t m_rom[INVADERS_ROM_SIZE]; 

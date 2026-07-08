@@ -25,6 +25,19 @@ void CPU::reset() {
   m_bus->reset();
 }
 
+CpuState CPU::get_cpu_state() {
+  CpuState cpu_state {};
+  cpu_state.pc = m_pc;
+  cpu_state.rgs = m_rgs;
+  cpu_state.rps = m_rps;
+  return cpu_state;
+}
+
+Bus* CPU::get_bus() {
+  return m_bus.get();
+}
+
+
 uint8_t CPU::fetch_next_word(){
   return m_bus->memory_read(m_pc++);
 }
@@ -67,14 +80,6 @@ void CPU::set_register(uint8_t rg, uint8_t data) {
 
 uint8_t CPU::get_register(uint8_t rg) {
   return *(m_rgs_map.at(rg));
-}
-
-CpuState CPU::get_cpu_state() {
-  CpuState cpu_state{};
-  cpu_state.pc = m_pc;
-  cpu_state.rgs = m_rgs;
-  cpu_state.rps = m_rps;
-  return cpu_state;
 }
 
 void CPU::lxi(uint8_t rp){

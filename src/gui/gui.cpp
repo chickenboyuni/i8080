@@ -60,7 +60,7 @@ int InvadersGUI::setup() {
     return 0;
 }
 
-int InvadersGUI::update_frame(const CpuState& cpu_state, bool& debugger_step, bool& debugger_cpu_running, const uint8_t instructions[], size_t instructions_size) {
+int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_state, bool& debugger_step, bool& debugger_cpu_running) {
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -82,99 +82,113 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, bool& debugger_step, bo
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
-
 #ifndef NDEBUG
-    ImGui::Begin("Intel 8080 - Debugger", nullptr, ImGuiWindowFlags_NoCollapse);
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
-    static bool follow_execution = true;
-    ImGui::Checkbox("Follow Execution", &follow_execution);
+    {
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkSize.x * 0.3f, viewport->WorkPos.y));
+        ImGui::SetNextWindowSize(viewport->WorkSize);
 
-    if(ImGui::Button("CPU Step")) { debugger_step = true; }
-
-    ImGui::SameLine();
-
-    char run_pause[16];
-    if(!debugger_cpu_running){
-        strcpy(run_pause, "Run");
-    } else { 
-        strcpy(run_pause, "Pause");
+        static MemoryEditor mem_edit;
+        mem_edit.DrawWindow("Intel 8080 - Memory Editor", memory_state.ram_state, INVADERS_RAM_SIZE);
     }
 
-    if(ImGui::Button(run_pause)) { 
-        debugger_cpu_running = !debugger_cpu_running;
-    }
+    {
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x * 0.3f, viewport->WorkSize.y));
 
-    if (ImGui::BeginTable("##Instructions", 3, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 50))) {
+        ImGui::Begin("Intel 8080 - Debugger", nullptr, ImGuiWindowFlags_NoCollapse);
 
-        ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 50.0f);
-        ImGui::TableSetupColumn("Instruction Binary", ImGuiTableColumnFlags_WidthFixed, 150.0f);
-        ImGui::TableSetupColumn("Instruction", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+        static bool follow_execution = true;
+        ImGui::Checkbox("Follow Execution", &follow_execution);
 
-        DisassembledInstruction disassembled_instructions[INVADERS_ROM_SIZE] {};
-        size_t disassembled_rom_size = disassemble_rom(disassembled_instructions, INVADERS_ROM_SIZE, instructions, instructions_size);
+        if(ImGui::Button("CPU Step")) { debugger_step = true; }
 
-        size_t i,j;
-        for(i=0, j=0; i < disassembled_rom_size; i++) {
-          ImGui::TableNextRow();
+        ImGui::SameLine();
 
-          // Address
-          ImGui::TableNextColumn();
-          ImGui::PushID(j);
-
-          char buf[32];
-          sprintf(buf, "0x%04x: ", (unsigned int)j);
-          ImGui::Text(buf);
-
-          // Instruction Binary
-          ImGui::TableNextColumn();
-
-          ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-          switch(disassembled_instructions[i].byte_count){
-            case 1: sprintf(buf, "%02x", instructions[j]); break;
-            case 2: sprintf(buf, "%02x %02x", instructions[j], instructions[j+1]); break;
-            case 3: sprintf(buf, "%02x %02x %02x", instructions[j], instructions[j+1], instructions[j+2]); break;
-            default:
-                strcpy(buf, "???"); break;
-          }
-          ImGui::Text(buf);
-          ImGui::PopStyleColor(); 
-
-          // Instruction
-          ImGui::TableNextColumn();
-
-          ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
-          ImGui::Selectable(disassembled_instructions[i].ins_str, j == cpu_state.pc, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
-          if(j == cpu_state.pc && follow_execution) { 
-              ImGui::SetScrollHereY(); 
-          }
-
-          j += disassembled_instructions[i].byte_count;
-
-          ImGui::PopID();
-
-          ImGui::PopStyleColor(); 
+        char run_pause[16];
+        if(!debugger_cpu_running){
+            strcpy(run_pause, "Run");
+        } else { 
+            strcpy(run_pause, "Pause");
         }
-        ImGui::EndTable();
 
-        ImGui::Text("CPU State:");
+        if(ImGui::Button(run_pause)) { 
+            debugger_cpu_running = !debugger_cpu_running;
+        }
 
-        char buf[128];
-        sprintf(buf, "PC: 0x%04x A: 0x%02x", (unsigned int)cpu_state.pc, cpu_state.rgs.a);
-        ImGui::Text(buf);
+        const uint8_t* instructions = memory_state.rom_state;
+        size_t instructions_size = INVADERS_ROM_SIZE;
 
-        sprintf(buf, "B: 0x%02x C: 0x%02x D: 0x%02x E: 0x%02x H: 0x%02x L: 0x%02x", 
-                    cpu_state.rgs.b, cpu_state.rgs.c, cpu_state.rgs.d, cpu_state.rgs.e, cpu_state.rgs.h, cpu_state.rgs.l);
-        ImGui::Text(buf);
+        if (ImGui::BeginTable("##Instructions", 3, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 50))) {
 
-        sprintf(buf, "BC: 0x%02x DE: 0x%02x HL: 0x%02x", cpu_state.rps.bc, cpu_state.rps.de, cpu_state.rps.hl);
-        ImGui::Text(buf);
+            ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+            ImGui::TableSetupColumn("Instruction Binary", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("Instruction", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+
+            DisassembledInstruction disassembled_instructions[INVADERS_ROM_SIZE] {};
+            size_t disassembled_rom_size = disassemble_rom(disassembled_instructions, INVADERS_ROM_SIZE, instructions, instructions_size);
+
+            size_t i,j;
+            for(i=0, j=0; i < disassembled_rom_size; i++) {
+              ImGui::TableNextRow();
+
+              // Address
+              ImGui::TableNextColumn();
+              ImGui::PushID(j);
+
+              char buf[32];
+              sprintf(buf, "0x%04x: ", (unsigned int)j);
+              ImGui::Text(buf);
+
+              // Instruction Binary
+              ImGui::TableNextColumn();
+
+              ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+              switch(disassembled_instructions[i].byte_count){
+                case 1: sprintf(buf, "%02x", instructions[j]); break;
+                case 2: sprintf(buf, "%02x %02x", instructions[j], instructions[j+1]); break;
+                case 3: sprintf(buf, "%02x %02x %02x", instructions[j], instructions[j+1], instructions[j+2]); break;
+                default:
+                    strcpy(buf, "???"); break;
+              }
+              ImGui::Text(buf);
+              ImGui::PopStyleColor(); 
+
+              // Instruction
+              ImGui::TableNextColumn();
+
+              ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f));
+              ImGui::Selectable(disassembled_instructions[i].ins_str, j == cpu_state.pc, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap);
+              if(j == cpu_state.pc && follow_execution) { 
+                  ImGui::SetScrollHereY(); 
+              }
+
+              j += disassembled_instructions[i].byte_count;
+
+              ImGui::PopID();
+
+              ImGui::PopStyleColor(); 
+            }
+            ImGui::EndTable();
+
+            ImGui::Text("CPU State:");
+
+            char buf[128];
+            sprintf(buf, "PC: 0x%04x A: 0x%02x", (unsigned int)cpu_state.pc, cpu_state.rgs.a);
+            ImGui::Text(buf);
+
+            sprintf(buf, "B: 0x%02x C: 0x%02x D: 0x%02x E: 0x%02x H: 0x%02x L: 0x%02x", 
+                        cpu_state.rgs.b, cpu_state.rgs.c, cpu_state.rgs.d, cpu_state.rgs.e, cpu_state.rgs.h, cpu_state.rgs.l);
+            ImGui::Text(buf);
+
+            sprintf(buf, "BC: 0x%02x DE: 0x%02x HL: 0x%02x", cpu_state.rps.bc, cpu_state.rps.de, cpu_state.rps.hl);
+            ImGui::Text(buf);
+        }
+
+        ImGui::End();
     }
 
-    ImGui::End();
 #endif /* ifndef NDEBUG */
 
     // keeping this to figure out shit when i need to add more gui thingies

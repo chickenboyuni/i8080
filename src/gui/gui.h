@@ -4,6 +4,8 @@
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
+#include "imgui_memory_editor.h"
+
 #include "../disasm/disasm.h"
 #include "../core/invaders/invaders.h"
 #include "../core/cpu.h"
@@ -22,12 +24,8 @@ class InvadersGUI {
     ~InvadersGUI() = default;
 
     int setup();
-    int update_frame(const CpuState& cpu_state, bool& debugger_step, bool& debugger_cpu_running, const uint8_t instructions[], size_t instructions_size);
+    int update_frame(const CpuState& cpu_state, MemoryState& memory_state, bool& debugger_step, bool& debugger_cpu_running);
     void destroy();
-
-    SDL_Window* get_window(){
-      return m_window;
-    }
 
   private:
     SDL_Window* m_window = nullptr;

@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -Wall -Wextra -DNDEBUG
+CXXFLAGS = -std=c++17 -Imodules/imgui_club/imgui_memory_editor -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -Wall -Wextra -DNDEBUG
 DEBUG_CXXFLAGS = $(filter-out -DNDEBUG, $(CXXFLAGS)) -g
 
 SRC_DIR = src
