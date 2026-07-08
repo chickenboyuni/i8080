@@ -50,8 +50,8 @@ public:
   MemoryState get_memory_state();
 private: 
 
-  uint8_t m_rom[INVADERS_ROM_SIZE]; 
-  uint8_t m_ram[INVADERS_RAM_SIZE];
+  uint8_t m_rom[INVADERS_ROM_SIZE] {}; 
+  uint8_t m_ram[INVADERS_RAM_SIZE] {};
 };
 
 #endif /* SPACE_INVADERS_H */
