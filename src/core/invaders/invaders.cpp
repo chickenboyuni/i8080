@@ -16,12 +16,14 @@ MemoryState InvadersBus::get_memory_state() {
   return memory_state;
 }
 
+// TODO: Improve log messages to include pc and instruction where error occured
 uint8_t InvadersBus::memory_read(uint16_t addr) {
 
   uint16_t msn = addr >> 12; // most significant nibble
 
   if(msn >= 0x6){
-    LOG_WARNING("the program is trying to access memory out of the memory map") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+    LOG_ERROR("the program is trying to access memory out of the memory map") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+    return 0x0;
   }
 
   /* 0000-1fff 8K ROM */
@@ -50,12 +52,14 @@ void InvadersBus::memory_write(uint16_t addr, uint8_t data) {
   uint16_t msn = addr >> 12; // most significant nibble
 
   if(msn >= 0x6){
-    LOG_WARNING("the program is trying to write to memory out of the memory map") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+    LOG_ERROR("the program is trying to write to memory out of the memory map") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+    return;
   }
 
   /* 0000-1fff 8K ROM */
   if(msn < 0x2){
     LOG_ERROR("the program is trying to write to read-only memory") << "\e[1m`0x" << std::setfill('0') << std::setw(4) << std::hex << addr << "`";
+    return;
   }
 
   /*

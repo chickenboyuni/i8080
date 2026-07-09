@@ -3,49 +3,38 @@
 
 #include<cstdint>
 #include<memory>
-#include<map>
+#include<unordered_map>
 
 #include "../common/utils.h"
+#include "cpu_state.h"
 #include "bus.h"
 
 #define NUM_OF_INSTRUCTIONS 0x100
 
-#pragma pack(push, 1)
-typedef struct FlagBits {
-  bool z:1;
-  bool s:1;
-  bool p:1;
-  bool c:1;
-  bool xc:1;
-} FlagBits;
-#pragma pack(pop)
+enum Register : unsigned int {
+  REGISTER_A,
+  REGISTER_B,
+  REGISTER_C,
+  REGISTER_D,
+  REGISTER_E,
+  REGISTER_H,
+  REGISTER_L,
+  REGISTER_COUNT
+};
 
-typedef struct Registers {
-  uint8_t a;
-  uint8_t b;
-  uint8_t c;
-  uint8_t d;
-  uint8_t e;
-  uint8_t h;
-  uint8_t l;
-} Registers;
+enum RegisterPair : unsigned int {
+  REGISTER_PAIR_BC = REGISTER_B,
+  REGISTER_PAIR_DE = REGISTER_D,
+  REGISTER_PAIR_HL = REGISTER_H
+};
 
-typedef struct RegisterPairs {
-  uint16_t bc;
-  uint16_t de;
-  uint16_t hl;
-  uint16_t sp;
-
-  FlagBits psw;
-} RegisterPairs;
-
-typedef struct CpuState {
-  uint16_t pc;
-
-  Registers rgs;
-  RegisterPairs rps;
-
-} CpuState;
+enum FlagBits : uint8_t {
+  FLAG_S  = 1 << 7,
+  FLAG_Z  = 1 << 6,
+  FLAG_AC = 1 << 4,
+  FLAG_P  = 1 << 2,
+  FLAG_CY = 1 << 0
+};
 
 class CPU {
 public:
@@ -59,7 +48,8 @@ public:
   CpuState get_cpu_state();
   Bus* get_bus();
 
-  uint8_t fetch_next_word();
+  uint8_t fetch_byte();
+  uint16_t fetch_2bytes();
   void fetch_execute_instruction();
 
   /**
@@ -77,12 +67,7 @@ public:
   void set_register(uint8_t rg, uint8_t data);
   uint8_t get_register(uint8_t rg);
 
-  void lxi(uint8_t rp);
-  void stax(uint8_t rp);
-
-  void mvi(uint8_t rg);
-
-  void lda();
+  uint16_t get_register_pair_from_idx(unsigned int register_pair_idx);
 
 private:
 
@@ -90,28 +75,47 @@ private:
 
   std::unique_ptr<Bus> m_bus;
 
-  uint16_t m_pc{};
+  uint16_t m_pc {}; // program counter
+  uint16_t m_sp {}; // stack pointer
 
-  Registers m_rgs{};
-  RegisterPairs m_rps{};
+  uint8_t m_psw {}; // processor status word
+  uint8_t m_regs[REGISTER_COUNT] {};
 
-  const std::map<uint8_t, uint16_t*> m_rps_map = {
-    {0b00, &m_rps.bc},
-    {0b01, &m_rps.de},
-    {0b10, &m_rps.hl},
-    {0b11, &m_rps.sp},
+  void shld();
+  void lhld();
+
+  void xchg();
+
+  void lxi(uint8_t rp);
+
+  void sta();
+  void stax(uint8_t rp);
+
+  void mov_rr(uint8_t r1, uint8_t r2);
+  void mov_rm(uint8_t rg);
+  void mov_mr(uint8_t rg);
+
+  void mvi_r(uint8_t rg);
+  void mvi_m();
+
+  void lda();
+  void ldax(uint8_t rp);
+
+  const std::unordered_map<uint8_t, unsigned int> m_regpairs_map = {
+    {0b00, REGISTER_PAIR_BC},
+    {0b01, REGISTER_PAIR_DE},
+    {0b10, REGISTER_PAIR_HL}
   };
 
-  const std::map<uint8_t, uint8_t*> m_rgs_map = {
-    {0b111, &m_rgs.a},
-    {0b000, &m_rgs.b},
-    {0b001, &m_rgs.c},
-    {0b010, &m_rgs.d},
-    {0b011, &m_rgs.e},
-    {0b100, &m_rgs.h},
-    {0b101, &m_rgs.l},
-  };
-
+  const std::unordered_map<uint8_t, unsigned int> m_regs_map = {
+    {0b111, REGISTER_A},
+    {0b000, REGISTER_B},
+    {0b001, REGISTER_C},
+    {0b010, REGISTER_D},
+    {0b011, REGISTER_E},
+    {0b100, REGISTER_H},
+    {0b101, REGISTER_L}
+  }; 
 };
 
 #endif /* CPU_H */

@@ -23,7 +23,7 @@ const std::unordered_map<uint8_t, const char*> rg_strings = {
   {0b100, "h"},
   {0b101, "l"},
 
-  {0b110, "M"} // not a register but adding for convenience for now, replace later with actual memory value
+  {0b110, "[hl]"} // not a register but adding for convenience for now, replace later with actual memory value
 };
 
 const std::unordered_map<uint8_t, const char*> conditional_flags = {
@@ -63,11 +63,11 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
       case 0x03: case 0x13: case 0x23: case 0x33:
         op_rp(disassembled_instruction_str, "inx", INS_EXTRACT_REGISTERPAIR(rom[pc])); break; // inx rp - 00rp0011
       case 0x04: case 0x0c: case 0x14: case 0x1c: case 0x24: case 0x2c: case 0x34: case 0x3c:
-        op_rg(disassembled_instruction_str, "inr", INS_EXTRACT_REGISTER(rom[pc])); break; // inr r - 00ddd100
+        op_rg(disassembled_instruction_str, "inr", INS_EXTRACT_DDD_REGISTER(rom[pc])); break; // inr r - 00ddd100
       case 0x05: case 0x0d: case 0x15: case 0x1d: case 0x25: case 0x2d: case 0x35: case 0x3d:
-        op_rg(disassembled_instruction_str, "dcr", INS_EXTRACT_REGISTER(rom[pc])); break; // dcr r - 00ddd101
+        op_rg(disassembled_instruction_str, "dcr", INS_EXTRACT_DDD_REGISTER(rom[pc])); break; // dcr r - 00ddd101
       case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x36: case 0x3e:
-        op_mvi(disassembled_instruction_str, INS_EXTRACT_REGISTER(rom[pc]), rom[pc+1]); pc += 1; break; // mvi r, d8 - 00ddd110 d8
+        op_mvi(disassembled_instruction_str, INS_EXTRACT_DDD_REGISTER(rom[pc]), rom[pc+1]); pc += 1; break; // mvi r, d8 - 00ddd110 d8
       case 0x07:
         op_narg(disassembled_instruction_str, "rlc"); break; // rlc - 00000111
       case 0x09: case 0x19: case 0x29: case 0x39:
@@ -106,27 +106,27 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
       case 0x68: case 0x69: case 0x6a: case 0x6b: case 0x6c: case 0x6d: case 0x6e: case 0x6f:
       case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x77:
       case 0x78: case 0x79: case 0x7a: case 0x7b: case 0x7c: case 0x7d: case 0x7e: case 0x7f:
-        op_mov(disassembled_instruction_str, (rom[pc] & 0b00111000) >> 3, rom[pc] & 0b00000111); break; // mov r1, r2 - 01dddsss
+        op_mov(disassembled_instruction_str, INS_EXTRACT_DDD_REGISTER(rom[pc]), INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // mov r1, r2 - 01dddsss
       case 0x76:
         op_narg(disassembled_instruction_str, "hlt"); break; // hlt - 01110110
       case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x86: case 0x87:
-        op_rg(disassembled_instruction_str, "add", rom[pc] & 0b00000111); break; // add r - 1/000sss
+        op_rg(disassembled_instruction_str, "add", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // add r - 1/000sss
       case 0x88: case 0x89: case 0x8a: case 0x8b: case 0x8c: case 0x8d: case 0x8e: case 0x8f:
-        op_rg(disassembled_instruction_str, "adc", rom[pc] & 0b00000111); break; // adc r - 10001sss
+        op_rg(disassembled_instruction_str, "adc", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // adc r - 10001sss
       case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0x97:
-        op_rg(disassembled_instruction_str, "sub", rom[pc] & 0b00000111); break; // sub r - 10010sss
+        op_rg(disassembled_instruction_str, "sub", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // sub r - 10010sss
       case 0x98: case 0x99: case 0x9a: case 0x9b: case 0x9c: case 0x9d: case 0x9e: case 0x9f:
-        op_rg(disassembled_instruction_str, "sbb", rom[pc] & 0b00000111); break; // sbb r - 10011sss
+        op_rg(disassembled_instruction_str, "sbb", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // sbb r - 10011sss
       case 0xa0: case 0xa1: case 0xa2: case 0xa3: case 0xa4: case 0xa5: case 0xa6: case 0xa7:
-        op_rg(disassembled_instruction_str, "ana", rom[pc] & 0b00000111); break; // ana r - 10100sss
+        op_rg(disassembled_instruction_str, "ana", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // ana r - 10100sss
       case 0xa8: case 0xa9: case 0xaa: case 0xab: case 0xac: case 0xad: case 0xae: case 0xaf:
-        op_rg(disassembled_instruction_str, "xra", rom[pc] & 0b00000111); break; // xra r - 10101sss
+        op_rg(disassembled_instruction_str, "xra", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // xra r - 10101sss
       case 0xb0: case 0xb1: case 0xb2: case 0xb3: case 0xb4: case 0xb5: case 0xb6: case 0xb7:
-        op_rg(disassembled_instruction_str, "ora", rom[pc] & 0b00000111); break; // ora r - 10110sss
+        op_rg(disassembled_instruction_str, "ora", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // ora r - 10110sss
       case 0xb8: case 0xb9: case 0xba: case 0xbb: case 0xbc: case 0xbd: case 0xbe: case 0xbf:
-        op_rg(disassembled_instruction_str, "cmp", rom[pc] & 0b00000111); break; // cmp r - 10111sss
+        op_rg(disassembled_instruction_str, "cmp", INS_EXTRACT_SSS_REGISTER(rom[pc])); break; // cmp r - 10111sss
       case 0xc0: case 0xc8: case 0xd0: case 0xd8: case 0xe0: case 0xe8: case 0xf0: case 0xf8:
-        op_condition(disassembled_instruction_str, 'r', (rom[pc] & 0b00111000) >> 3); break; // rcondition - 11ccc000
+        op_condition(disassembled_instruction_str, 'r', INS_EXTRACT_CONDITION(rom[pc])); break; // rcondition - 11ccc000
       case 0xc1: case 0xd1: case 0xe1: case 0xf1: 
         op_rp(disassembled_instruction_str, "pop", INS_EXTRACT_REGISTERPAIR(rom[pc])); break; // pop rp - 11rp0001
       case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
