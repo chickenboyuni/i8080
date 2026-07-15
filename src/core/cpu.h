@@ -11,6 +11,13 @@
 
 #define NUM_OF_INSTRUCTIONS 0x100
 
+#define LIST_OF_FLAGS \
+    X(Z, zero) \
+    X(S, sign) \
+    X(P, parity) \
+    X(CY, carry) \
+    X(AC, aux_carry) 
+
 enum Register : unsigned int {
   REGISTER_A,
   REGISTER_B,
@@ -36,6 +43,15 @@ enum FlagBits : uint8_t {
   FLAG_CY = 1 << 0
 };
 
+enum class ArithmeticMode {
+  Register,
+  Memory,
+  Immediate 
+};
+
+uint8_t condition_is_met(bool condition);
+uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry);
+
 class CPU {
 public:
   CPU(std::unique_ptr<Bus>&& bus);
@@ -48,9 +64,22 @@ public:
   CpuState get_cpu_state();
   Bus* get_bus();
 
+  void fetch_execute_instruction();
+
+private:
+
+  bool m_running{true};
+
+  std::unique_ptr<Bus> m_bus;
+
+  uint16_t m_pc = 0x00; // program counter
+  uint16_t m_sp = 0x00; // stack pointer
+
+  uint8_t m_psw = 0x0; // processor status word
+  uint8_t m_regs[REGISTER_COUNT] {};
+
   uint8_t fetch_byte();
   uint16_t fetch_2bytes();
-  void fetch_execute_instruction();
 
   /**
    * @param  rp:  register pair bit pattern
@@ -69,17 +98,20 @@ public:
 
   uint16_t get_register_pair_from_idx(unsigned int register_pair_idx);
 
-private:
+#define X(flag, name) void update_##name##_flag(bool is_##name);
+  LIST_OF_FLAGS
+#undef X
 
-  bool m_running{true};
+  bool get_status_flag(uint8_t flag_type);
 
-  std::unique_ptr<Bus> m_bus;
+  void add(uint8_t rg, ArithmeticMode mode, bool with_carry);
+  void sub(uint8_t rg, ArithmeticMode mode, bool with_borrow);
+  void inr_r(uint8_t rg, bool decrement);
+  void inr_m(bool decrement);
+  void inx(uint8_t rp, bool decrement);
 
-  uint16_t m_pc {}; // program counter
-  uint16_t m_sp {}; // stack pointer
-
-  uint8_t m_psw {}; // processor status word
-  uint8_t m_regs[REGISTER_COUNT] {};
+  void dad(uint8_t rp);
+  void daa();
 
   void shld();
   void lhld();

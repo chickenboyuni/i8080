@@ -42,19 +42,25 @@ int main(int argc, char* argv[]){
 #ifndef NDEBUG
     // TEMPORARY: just so i can test and implement instructions one by one for now
     // small test for implemented instructions
-    uint8_t rom_file[INVADERS_ROM_SIZE] {0x3e, 0x12, // mvi a, 0x12
-                                         0x01, 0x00, 0x20, // lxi bc, 0x2000
-                                         0x21, 0x01, 0x00, // lxi hl, 0x0001
-                                         0x60, // mov h, b
-                                         0x77, // mov [hl], a
-                                         0x56, // mov d, [hl]
-                                         0x36, 0x13, // mvi [hl], 0x13
+    uint8_t rom_file[INVADERS_ROM_SIZE] {
+                                         0x3e, 0x01, // mvi a, 0x01
                                          0x32, 0x00, 0x20, // sta 0x2000
-                                         0x22, 0x10, 0x20, // shld 0x2010
-                                         0x2a, 0x00, 0x20, // lhld 0x3456
-                                         0xeb, // xchg
-                                         0x3e, 0x00, // mvi a, 0x00
-                                         0x0a, // ldax bc
+                                         0x21, 0x00, 0x20, // lxi hl, 0x2000
+                                         0x3e, 0xff, // mvi a, 0xff
+                                         0x34, 
+                                         0x86, // add [hl] (to accumulator)
+                                         0x3e, 0x26, // mvi a, 0x26
+                                         0x06, 0x18, // mvi b, 0x18
+                                         0x80, // add b (to accumulator)
+                                         0x27,
+                                         0xc6, 0x03, // adi 0x03
+                                         0x06, 0x02, // mvi b, 0x01
+                                         0x0b, // daa
+                                         0x31, 0x01, 0x00, // lxi sp, 0x0001
+                                         0x39, // dad sp
+                                         0x03,
+                                         0x13,
+                                         0x90, // sub b
                                          0xff
     };
     size_t rom_file_size = INVADERS_ROM_SIZE;

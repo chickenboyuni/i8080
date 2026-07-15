@@ -6,8 +6,8 @@ typedef struct StateFlagBits {
   bool z:1;
   bool s:1;
   bool p:1;
+  bool cy:1;
   bool ac:1;
-  bool xc:1;
 } StateFlagBits;
 #pragma pack(pop)
 

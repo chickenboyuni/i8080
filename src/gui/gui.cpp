@@ -120,7 +120,7 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
         const uint8_t* instructions = memory_state.rom_state;
         size_t instructions_size = INVADERS_ROM_SIZE;
 
-        if (ImGui::BeginTable("##Instructions", 3, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 50))) {
+        if (ImGui::BeginTable("##Instructions", 3, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 48))) {
 
             ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 50.0f);
             ImGui::TableSetupColumn("Instruction Binary", ImGuiTableColumnFlags_WidthFixed, 150.0f);
@@ -175,7 +175,7 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
             ImGui::Text("CPU State:");
 
             char buf[128];
-            sprintf(buf, "PC: 0x%04x A: 0x%02x", (unsigned int)cpu_state.pc, cpu_state.rgs.a);
+            sprintf(buf, "PC: 0x%04x SP: 0x%04x A: 0x%02x", (unsigned int)cpu_state.pc, cpu_state.rps.sp, cpu_state.rgs.a);
             ImGui::Text(buf);
 
             sprintf(buf, "B: 0x%02x C: 0x%02x D: 0x%02x E: 0x%02x H: 0x%02x L: 0x%02x", 
@@ -183,6 +183,10 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
             ImGui::Text(buf);
 
             sprintf(buf, "BC: 0x%02x DE: 0x%02x HL: 0x%02x", cpu_state.rps.bc, cpu_state.rps.de, cpu_state.rps.hl);
+            ImGui::Text(buf);
+
+            sprintf(buf, "Z: %d | S: %d | P: %d | CY: %d | AC: %d", cpu_state.rps.psw.z , cpu_state.rps.psw.s , cpu_state.rps.psw.p, 
+                                                                    cpu_state.rps.psw.cy, cpu_state.rps.psw.ac);
             ImGui::Text(buf);
         }
 

@@ -6,7 +6,7 @@
 #include "../common/logging.h"
 
 CPU::CPU(std::unique_ptr<Bus>&& bus) : m_bus(std::move(bus)) {
-
+  reset();
 }
 
 CPU::~CPU() = default;
@@ -18,8 +18,8 @@ bool CPU::running() {
 void CPU::reset() {
   m_running = true;
 
-  m_pc = 0x0;
-  m_sp = 0x0;
+  m_pc = 0x00;
+  m_sp = 0x00;
   m_psw = 0x0;
 
   memset(m_regs, 0x0, REGISTER_COUNT);
@@ -43,7 +43,11 @@ CpuState CPU::get_cpu_state() {
                     .de = get_register_pair_from_idx(REGISTER_PAIR_DE),
                     .hl = get_register_pair_from_idx(REGISTER_PAIR_HL),
                     .sp = m_sp,
-                    .psw = {}, // leave as nothing for now
+                    .psw = { .z  = get_status_flag(FLAG_Z),
+                             .s  = get_status_flag(FLAG_S),
+                             .p  = get_status_flag(FLAG_P),
+                             .cy = get_status_flag(FLAG_CY),
+                             .ac = get_status_flag(FLAG_AC) }
   };
   return cpu_state;
 }
@@ -108,6 +112,54 @@ void CPU::fetch_execute_instruction() {
     case 0x46: case 0x4e: case 0x56: case 0x5e: case 0x66: case 0x6e: case 0x7e:
       mov_rm(INS_EXTRACT_DDD_REGISTER(ins)); break; // mov r, M - 01ddd110
 
+    // add without carry
+    case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x87:
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, false); break; // add r - 10000sss 
+    case 0x86:
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, false); break; // add m - 10000110
+    case 0xc6:
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, false); break; // adi d8 - 11000110 d8
+    // add with carry
+    case 0x88: case 0x89: case 0x8a: case 0x8b: case 0x8c: case 0x8d: case 0x8f:
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, true); break; // adc r - 10001sss 
+    case 0x8e: 
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, true); break; // adc m - 10001110
+    case 0xce:
+      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, true); break; // aci d8 - 11001110 d8
+
+    // sub without borrow 
+    case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x97:
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, false); break; // sub r - 10010sss
+    case 0x96:
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, false); break; // sub m - 10010110
+    case 0xd6:
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, false); break; // sui data - 11010110 d8
+    // sub with borrow
+    case 0x98: case 0x99: case 0x9a: case 0x9b: case 0x9c: case 0x9d: case 0x9f:
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, true); break; // sbb r - 10011sss
+    case 0x9e: 
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, true); break; // sbb m - 10011110
+    case 0xde:
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, true); break; // sbi d8 - 11011110 d8
+
+    case 0x04: case 0x0c: case 0x14: case 0x1c: case 0x24: case 0x2c: case 0x3c:
+      inr_r(INS_EXTRACT_DDD_REGISTER(ins), false); break; // inr r - 00ddd100
+    case 0x34: 
+      inr_m(false); break; // inr m - 00110100
+    case 0x05: case 0x0d: case 0x15: case 0x1d: case 0x25: case 0x2d: case 0x3d:
+      inr_r(INS_EXTRACT_DDD_REGISTER(ins), true); break; // dcr r - 00ddd101
+    case 0x35: 
+      inr_m(true); break; // dcr m - 00110101
+    case 0x03: case 0x13: case 0x23: case 0x33:
+      inx(INS_EXTRACT_REGISTERPAIR(ins), false); break; // inx rp - 00rp0011
+    case 0x0b: case 0x1b: case 0x2b: case 0x3b:
+      inx(INS_EXTRACT_REGISTERPAIR(ins), true); break; // dcx rp - 00rp1011
+
+    case 0x09: case 0x19: case 0x29: case 0x39:
+      dad(INS_EXTRACT_REGISTERPAIR(ins)); break; // dad rp - 00rp1001
+    case 0x27:
+      daa(); break; // daa - 00100111
+
     default:
       std::stringstream ss;
       ss << "unimplemented instruction \e[1m0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) 
@@ -117,12 +169,19 @@ void CPU::fetch_execute_instruction() {
 }
 
 void CPU::set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh){
+  if(rp == 0b11){
+    m_sp = (bh << 8) | bl;
+    return;
+  }
   unsigned int first_register_idx = m_regpairs_map.at(rp);
   m_regs[first_register_idx] = bh;
   m_regs[first_register_idx+1] = bl;
 }
 
 uint16_t CPU::get_register_pair(uint8_t rp){
+  if(rp == 0b11){
+    return m_sp;
+  }
   unsigned int register_pair_idx = m_regpairs_map.at(rp);
   return get_register_pair_from_idx(register_pair_idx);
 }
@@ -139,6 +198,178 @@ uint8_t CPU::get_register(uint8_t rg) {
 
 uint16_t CPU::get_register_pair_from_idx(unsigned int register_pair_idx) {
   return (m_regs[register_pair_idx] << 8) | m_regs[register_pair_idx+1];
+}
+
+uint8_t condition_is_met(bool condition) {
+  if(condition) {
+    return 0b11111111;
+  } 
+  return 0;
+}
+
+#define X(flag, name) void CPU::update_##name##_flag(bool is_##name){ \
+                    m_psw &= FLAG_##flag ^ 0b11111111; \
+                    m_psw |= FLAG_##flag & condition_is_met(is_##name); \
+                  }
+LIST_OF_FLAGS
+#undef X
+
+bool CPU::get_status_flag(uint8_t flag_type) {
+  return !!(m_psw & flag_type);
+}
+
+uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry) {
+  uint8_t res = 0;
+  for(size_t i = 0; i < 8 ; i++){
+    uint8_t bit_a = a & (1 << i);
+    uint8_t bit_b = b & (1 << i);
+    res = res | ((bit_a ^ bit_b) ^ carry); 
+    carry = ((bit_a & bit_b) | (bit_a & carry) | (bit_b & carry)) << 1; 
+    if(i == 3) { aux_carry = !!carry; } // If the instruction caused a carry out of bit 3 and into bit 4, the auxiliary carry is set
+  }
+  carry = !!carry; // if carry >= 1, let it just be 1
+  return res;
+}
+
+void CPU::add(uint8_t rg, ArithmeticMode mode, bool with_carry){
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t data = 0;
+
+  switch(mode) {
+    case ArithmeticMode::Register:
+      data = get_register(rg);
+      break;
+    case ArithmeticMode::Memory:
+      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+      break;
+    case ArithmeticMode::Immediate:
+      data = fetch_byte();
+      break;
+  }
+
+  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, aux_carry);
+  if(with_carry) {
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], get_status_flag(FLAG_CY), carry, aux_carry);
+  }
+
+  update_zero_flag(m_regs[REGISTER_A] == 0);
+  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
+  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_carry_flag(carry);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::sub(uint8_t rg, ArithmeticMode mode, bool with_borrow){
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t data = 0;
+
+  switch(mode) {
+    case ArithmeticMode::Register:
+      data = get_register(rg);
+      break;
+    case ArithmeticMode::Memory:
+      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+      break;
+    case ArithmeticMode::Immediate:
+      data = fetch_byte();
+      break;
+  }
+  
+  // two's complement
+  data = ~data + 1;
+
+  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, aux_carry);
+  if(with_borrow) {
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], ~((uint8_t)get_status_flag(FLAG_CY)) + 1, carry, aux_carry);
+  }
+
+  update_zero_flag(m_regs[REGISTER_A] == 0);
+  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
+  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_carry_flag(carry);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::inr_r(uint8_t rg, bool decrement) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t increment_value = (decrement) ? 0xff : 0x01;
+
+  set_register(rg, binary_add(get_register(rg), increment_value, carry, aux_carry));
+
+  uint8_t result = get_register(rg);
+  update_zero_flag(result == 0);
+  update_sign_flag(result & 0b10000000);
+  update_parity_flag((result % 2) == 0);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::inr_m(bool decrement) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t increment_value = (decrement) ? 0xff : 0x01;
+
+  m_bus->memory_write(
+                      get_register_pair_from_idx(REGISTER_PAIR_HL),
+                      binary_add(m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL)), increment_value, carry, aux_carry)
+                     );
+
+  uint8_t result = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+  update_zero_flag(result == 0);
+  update_sign_flag(result & 0b10000000);
+  update_parity_flag((result % 2) == 0);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::inx(uint8_t rp, bool decrement) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+
+  uint8_t rl_value = 0;
+  uint8_t rh_value = 0;
+
+  if(decrement){
+    rl_value = binary_add(get_register_pair(rp), 0xff, carry, aux_carry);
+    rh_value = binary_add(get_register_pair(rp) >> 8, 0xff, carry, aux_carry);
+  } else {
+    rl_value = binary_add(get_register_pair(rp), 1, carry, aux_carry);
+    rh_value = binary_add(get_register_pair(rp) >> 8, 0, carry, aux_carry);
+  }
+  set_register_pair(rp, rl_value, rh_value);
+}
+
+void CPU::dad(uint8_t rp) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+
+  uint16_t rp_content = get_register_pair(rp);
+  uint8_t rl_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL), rp_content, carry, aux_carry);
+  uint8_t rh_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL) >> 8, rp_content >> 8, carry, aux_carry);
+  // 0b10 is the bit pattern for register pair HL
+  set_register_pair(0b10, rl_value, rh_value);
+  update_carry_flag(carry);
+}
+
+void CPU::daa() {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+
+  if((m_regs[REGISTER_A] & 0x0f) > 0x09 || get_status_flag(FLAG_AC)){
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x06, carry, aux_carry);
+  }
+  unsigned int aux_carry_copy = aux_carry;
+  carry = 0;
+  if((m_regs[REGISTER_A] >> 4) > 0x09 || get_status_flag(FLAG_CY)){
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x60, carry, aux_carry);
+  }
+  
+  update_zero_flag(m_regs[REGISTER_A] == 0);
+  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
+  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_carry_flag(carry);
+  update_aux_carry_flag(aux_carry_copy);
 }
 
 void CPU::shld(){
