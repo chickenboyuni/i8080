@@ -104,6 +104,21 @@ private:
 
   bool get_status_flag(uint8_t flag_type);
 
+  bool branch_condition_is_met(uint8_t condition);
+
+  void jmp();
+  void jmp_conditional(uint8_t condition_bit_pattern);
+
+  void call();
+  void call_conditional(uint8_t condition_bit_pattern);
+
+  void ret();
+  void ret_conditional(uint8_t condition_bit_pattern);
+
+  void rst(uint8_t number);
+
+  void pchl();
+
   void add(uint8_t rg, ArithmeticMode mode, bool with_carry);
   void sub(uint8_t rg, ArithmeticMode mode, bool with_borrow);
   void inr_r(uint8_t rg, bool decrement);

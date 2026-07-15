@@ -160,6 +160,27 @@ void CPU::fetch_execute_instruction() {
     case 0x27:
       daa(); break; // daa - 00100111
 
+    case 0xc3:
+      jmp(); break; // jmp addr - 11000011 laddr haddr
+    case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
+      jmp_conditional(INS_EXTRACT_CONDITION(ins)); break; // jcondition addr - 11ccc010 laddr haddr
+
+    case 0xcd:
+      call(); break; // call addr - 11001101 laddr haddr
+    case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
+      call_conditional(INS_EXTRACT_CONDITION(ins)); break; // cconditon addr - 11ccc100 laddr haddr
+
+    case 0xc9:
+      ret(); break; // ret - 11001001
+    case 0xc0: case 0xc8: case 0xd0: case 0xd8: case 0xe0: case 0xe8: case 0xf0: case 0xf8:
+      ret_conditional(INS_EXTRACT_CONDITION(ins)); break; // rcondition - 11ccc000
+
+    case 0xc7: case 0xcf: case 0xd7: case 0xdf: case 0xe7: case 0xef: case 0xf7: case 0xff:
+      rst((ins & 0b00111000) >> 3); break; // rst n - 11nnn111
+
+    case 0xe9:
+      pchl(); break; // pchl - 11101001
+
     default:
       std::stringstream ss;
       ss << "unimplemented instruction \e[1m0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) 
@@ -216,6 +237,77 @@ LIST_OF_FLAGS
 
 bool CPU::get_status_flag(uint8_t flag_type) {
   return !!(m_psw & flag_type);
+}
+
+bool CPU::branch_condition_is_met(uint8_t condition) {
+  switch(condition) {
+    case 0b000: return !get_status_flag(FLAG_Z);
+    case 0b001: return get_status_flag(FLAG_Z);
+
+    case 0b010: return !get_status_flag(FLAG_CY);
+    case 0b011: return get_status_flag(FLAG_CY);
+
+    case 0b100: return !get_status_flag(FLAG_P);
+    case 0b101: return get_status_flag(FLAG_P);
+
+    case 0b110: return !get_status_flag(FLAG_S);
+    case 0b111: return get_status_flag(FLAG_S);
+  }
+
+  return false;
+}
+
+void CPU::jmp() {
+  uint16_t addr = fetch_2bytes();
+  m_pc = addr;
+}
+
+void CPU::jmp_conditional(uint8_t condition_bit_pattern) {
+  uint16_t addr = fetch_2bytes();
+  if(branch_condition_is_met(condition_bit_pattern)) {
+    m_pc = addr;
+  }
+}
+
+void CPU::call() {
+  uint16_t addr = fetch_2bytes();
+  m_bus->memory_write(m_sp-1, m_pc >> 8);
+  m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+  m_sp -= 2;
+  m_pc = addr;
+}
+
+void CPU::call_conditional(uint8_t condition_bit_pattern) {
+  uint16_t addr = fetch_2bytes();
+  if(branch_condition_is_met(condition_bit_pattern)) {
+    m_bus->memory_write(m_sp-1, m_pc >> 8);
+    m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+    m_sp -= 2;
+    m_pc = addr;
+  }
+}
+
+void CPU::ret() {
+  m_pc = (m_bus->memory_read(m_sp+1) << 8) | m_bus->memory_read(m_sp);
+  m_sp += 2;
+}
+
+void CPU::ret_conditional(uint8_t condition_bit_pattern) {
+  if(branch_condition_is_met(condition_bit_pattern)) {
+    m_pc = (m_bus->memory_read(m_sp+1) << 8) | m_bus->memory_read(m_sp);
+    m_sp += 2;
+  }
+}
+
+void CPU::rst(uint8_t number) {
+  m_bus->memory_write(m_sp-1, m_pc >> 8);
+  m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+  m_sp -= 2;
+  m_pc = 8 * number;
+}
+
+void CPU::pchl() {
+  m_pc = get_register_pair_from_idx(REGISTER_PAIR_HL);
 }
 
 uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry) {
