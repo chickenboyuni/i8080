@@ -204,7 +204,7 @@ void op_narg(char* instruction_str, const char* instruction_name) {
 void op_rp(char* instruction_str, const char* instruction_name, uint8_t rp) { 
   char dest[8];
   strcpy(dest, rp_strings.at(rp));
-  if((strcmp(instruction_name, "push") || strcmp(instruction_name, "pop")) && rp == 0b11){
+  if((!strcmp(instruction_name, "push") || !strcmp(instruction_name, "pop")) && rp == 0b11){
     sprintf(dest, "psw");
   }
   sprintf(instruction_str, "%s %s", instruction_name, dest);
@@ -219,7 +219,7 @@ void op_addr(char* instruction_str, const char* instruction_name, uint16_t addr)
 } 
 
 void op_d8(char* instruction_str, const char* instruction_name, uint8_t data) { 
-  if(strcmp(instruction_name, "rst")) {
+  if(!strcmp(instruction_name, "rst")) {
     sprintf(instruction_str, "%s %d", instruction_name, static_cast<int>(data));
   } else {
     sprintf(instruction_str, "%s 0x%02x", instruction_name, static_cast<int>(data));
