@@ -272,7 +272,7 @@ void CPU::jmp_conditional(uint8_t condition_bit_pattern) {
 void CPU::call() {
   uint16_t addr = fetch_2bytes();
   m_bus->memory_write(m_sp-1, m_pc >> 8);
-  m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+  m_bus->memory_write(m_sp-2, m_pc & 0x00ff);
   m_sp -= 2;
   m_pc = addr;
 }
@@ -281,7 +281,7 @@ void CPU::call_conditional(uint8_t condition_bit_pattern) {
   uint16_t addr = fetch_2bytes();
   if(branch_condition_is_met(condition_bit_pattern)) {
     m_bus->memory_write(m_sp-1, m_pc >> 8);
-    m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+    m_bus->memory_write(m_sp-2, m_pc & 0x00ff);
     m_sp -= 2;
     m_pc = addr;
   }
@@ -301,7 +301,7 @@ void CPU::ret_conditional(uint8_t condition_bit_pattern) {
 
 void CPU::rst(uint8_t number) {
   m_bus->memory_write(m_sp-1, m_pc >> 8);
-  m_bus->memory_write(m_sp-2, m_pc & 0x0f);
+  m_bus->memory_write(m_sp-2, m_pc & 0x00ff);
   m_sp -= 2;
   m_pc = 8 * number;
 }
