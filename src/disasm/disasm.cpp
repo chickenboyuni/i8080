@@ -133,7 +133,7 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
         op_condition(disassembled_instruction_str, 'j', INS_EXTRACT_CONDITION(rom[pc]), INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // jcondition addr - 11ccc010 laddr haddr
       case 0xc3:
         op_addr(disassembled_instruction_str, "jmp", INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // jmp addr - 11000011 laddr haddr
-      case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
+      case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc:
         op_condition(disassembled_instruction_str, 'c', INS_EXTRACT_CONDITION(rom[pc]), INS_MAKE_ADDRESS(rom[pc+1], rom[pc+2])); pc += 2; break; // cconditon addr - 11ccc100 laddr haddr
       case 0xc5: case 0xd5: case 0xe5: case 0xf5:
         op_rp(disassembled_instruction_str, "push", INS_EXTRACT_REGISTERPAIR(rom[pc])); break; // push rp - 11rp0101
@@ -173,6 +173,8 @@ size_t disassemble_rom(DisassembledInstruction disassembled_instructions[], size
         op_narg(disassembled_instruction_str, "sphl"); break; // sphl - 11111001
       case 0xfb:
         op_narg(disassembled_instruction_str, "ei"); break; // ei - 11111011
+      case 0xfe:
+        op_d8(disassembled_instruction_str, "cpi", rom[pc+1]); pc += 1;; break; // cpi - 11111110
       default: 
         sprintf(disassembled_instruction_str, "%02x ", static_cast<int>(rom[pc]));
         break;
