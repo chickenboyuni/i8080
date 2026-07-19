@@ -40,6 +40,7 @@ void CPU::reset() {
   m_bus->reset();
 }
 
+// holy ugly
 CpuState CPU::get_cpu_state() {
   CpuState cpu_state {};
   cpu_state.pc = m_pc;
@@ -99,30 +100,24 @@ uint8_t CPU::fetch_execute_instruction() {
     case 0x38: case 0xcb: case 0xd9: case 0xdd: case 0xed: case 0xfd:
        break; // nop - 00000000 or undefined behaviour so will be left unimplemented
 
-    case 0x22:
-      shld(); break; // shld addr - 00100010 laddr haddr
-    case 0x2a:
-      lhld(); break; // lhld addr - 00101010 laddr haddr
+    case 0x22: shld(); break; // shld addr - 00100010 laddr haddr
+    case 0x2a: lhld(); break; // lhld addr - 00101010 laddr haddr
 
-    case 0xeb:
-      xchg(); break; // xchg - 11101011
+    case 0xeb: xchg(); break; // xchg - 11101011
 
-    case 0x32:
-      sta(); break; // sta addr - 00110010 laddr haddr
     case 0x02: case 0x12:
       stax(INS_EXTRACT_REGISTERPAIR(ins)); break; // stax rp - 00rp0010
+    case 0x32: sta(); break;                      // sta addr - 00110010 laddr haddr
 
     case 0x06: case 0x0e: case 0x16: case 0x1e: case 0x26: case 0x2e: case 0x3e:
       mvi_r(INS_EXTRACT_DDD_REGISTER(ins)); break; // mvi r, d8 - 00ddd110 d8
-    case 0x36:
-      mvi_m(); break; // mvi M, d8 - 00110110 d8
+    case 0x36: mvi_m(); break;                     // mvi M, d8 - 00110110 d8
 
     case 0x01: case 0x11: case 0x21: case 0x31:
       lxi(INS_EXTRACT_REGISTERPAIR(ins)); break; // lxi rp, d16 - 00rp0001 d8 d8
-    case 0x3a:
-      lda(); break; // lda addr - 00111010 laddr haddr
     case 0x0a: case 0x1a:
       ldax(INS_EXTRACT_REGISTERPAIR(ins)); break; // ldax rp - 00rp1010
+    case 0x3a: lda(); break;                      // lda addr - 00111010 laddr haddr
 
     case 0x40: case 0x41: case 0x42: case 0x43: case 0x44: case 0x45: case 0x47:
     case 0x48: case 0x49: case 0x4a: case 0x4b: case 0x4c: case 0x4d: case 0x4f:
@@ -133,47 +128,41 @@ uint8_t CPU::fetch_execute_instruction() {
     case 0x78: case 0x79: case 0x7a: case 0x7b: case 0x7c: case 0x7d: case 0x7f:
       mov_rr(INS_EXTRACT_DDD_REGISTER(ins), INS_EXTRACT_SSS_REGISTER(ins)); break; // mov r1, r2 - 01dddsss
     case 0x70: case 0x71: case 0x72: case 0x73: case 0x74: case 0x75: case 0x77:
-      mov_mr(INS_EXTRACT_SSS_REGISTER(ins)); break; // mov M, r - 01110sss
+      mov_mr(INS_EXTRACT_SSS_REGISTER(ins)); break;                                // mov M, r - 01110sss
     case 0x46: case 0x4e: case 0x56: case 0x5e: case 0x66: case 0x6e: case 0x7e:
-      mov_rm(INS_EXTRACT_DDD_REGISTER(ins)); break; // mov r, M - 01ddd110
+      mov_rm(INS_EXTRACT_DDD_REGISTER(ins)); break;                                // mov r, M - 01ddd110
 
     // add without carry
     case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x87:
       add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITHOUT_CARRY); break; // add r - 10000sss 
-    case 0x86:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // add m - 10000110
-    case 0xc6:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // adi d8 - 11000110 d8
+    case 0x86: add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // add m - 10000110
+    case 0xc6: add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // adi d8 - 11000110 d8
+
     // add with carry
     case 0x88: case 0x89: case 0x8a: case 0x8b: case 0x8c: case 0x8d: case 0x8f:
       add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITH_CARRY); break; // adc r - 10001sss 
-    case 0x8e: 
-      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // adc m - 10001110
-    case 0xce:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // aci d8 - 11001110 d8
+    case 0x8e: add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // adc m - 10001110
+    case 0xce: add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // aci d8 - 11001110 d8
 
     // sub without borrow 
     case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x97:
       sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITHOUT_CARRY); break; // sub r - 10010sss
-    case 0x96:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // sub m - 10010110
-    case 0xd6:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // sui data - 11010110 d8 sub with borrow
+    case 0x96: sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // sub m - 10010110
+    case 0xd6: sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // sui data - 11010110 d8 sub with borrow
+
     case 0x98: case 0x99: case 0x9a: case 0x9b: case 0x9c: case 0x9d: case 0x9f:
       sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITH_CARRY); break; // sbb r - 10011sss
-    case 0x9e: 
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // sbb m - 10011110
-    case 0xde:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // sbi d8 - 11011110 d8
+    case 0x9e: sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // sbb m - 10011110
+    case 0xde: sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // sbi d8 - 11011110 d8
 
     case 0x04: case 0x0c: case 0x14: case 0x1c: case 0x24: case 0x2c: case 0x3c:
       inr_r(INS_EXTRACT_DDD_REGISTER(ins), MODE_INCREMENT); break; // inr r - 00ddd100
-    case 0x34: 
-      inr_m(MODE_INCREMENT); break; // inr m - 00110100
+    case 0x34: inr_m(MODE_INCREMENT); break;                       // inr m - 00110100
+
     case 0x05: case 0x0d: case 0x15: case 0x1d: case 0x25: case 0x2d: case 0x3d:
       inr_r(INS_EXTRACT_DDD_REGISTER(ins), MODE_DECREMENT); break; // dcr r - 00ddd101
-    case 0x35: 
-      inr_m(MODE_DECREMENT); break; // dcr m - 00110101
+    case 0x35: inr_m(MODE_DECREMENT); break;                       // dcr m - 00110101
+
     case 0x03: case 0x13: case 0x23: case 0x33:
       inx(INS_EXTRACT_REGISTERPAIR(ins), MODE_INCREMENT); break; // inx rp - 00rp0011
     case 0x0b: case 0x1b: case 0x2b: case 0x3b:
@@ -181,101 +170,73 @@ uint8_t CPU::fetch_execute_instruction() {
 
     case 0x09: case 0x19: case 0x29: case 0x39:
       dad(INS_EXTRACT_REGISTERPAIR(ins)); break; // dad rp - 00rp1001
-    case 0x27:
-      daa(); break; // daa - 00100111
+    case 0x27: daa(); break;                     // daa - 00100111
 
-    case 0xc3:
-      jmp(); break; // jmp addr - 11000011 laddr haddr
     case 0xc2: case 0xca: case 0xd2: case 0xda: case 0xe2: case 0xea: case 0xf2: case 0xfa:
       jmp_conditional(INS_EXTRACT_CONDITION(ins)); break; // jcondition addr - 11ccc010 laddr haddr
+    case 0xc3: jmp(); break;                              // jmp addr - 11000011 laddr haddr
 
-    case 0xcd:
-      call(); break; // call addr - 11001101 laddr haddr
     case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc:
       if(call_conditional(INS_EXTRACT_CONDITION(ins))) { instruction_cycles += 6; } ; break; // cconditon addr - 11ccc100 laddr haddr
+    case 0xcd: call(); break;                                                                // call addr - 11001101 laddr haddr
 
-    case 0xc9:
-      ret(); break; // ret - 11001001
     case 0xc0: case 0xc8: case 0xd0: case 0xd8: case 0xe0: case 0xe8: case 0xf0: case 0xf8:
       if(ret_conditional(INS_EXTRACT_CONDITION(ins))) { instruction_cycles += 6; }; break; // rcondition - 11ccc000
+    case 0xc9: ret(); break;                                                               // ret - 11001001
 
     case 0xc7: case 0xcf: case 0xd7: case 0xdf: case 0xe7: case 0xef: case 0xf7: case 0xff:
       rst((ins & 0b00111000) >> 3); break; // rst n - 11nnn111
 
-    case 0xe9:
-      pchl(); break; // pchl - 11101001
+    case 0xe9: pchl(); break; // pchl - 11101001
 
     // and
     case 0xa0: case 0xa1: case 0xa2: case 0xa3: case 0xa4: case 0xa5: case 0xa7:
        boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_and); break; // ana r - 10100sss
-    case 0xa6:
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_and); break; // ana m - 10100110
-    case 0xe6:
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_and); break; // ani d8 - 11100110 d8
+    case 0xa6: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_and); break; // ana m - 10100110
+    case 0xe6: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_and); break; // ani d8 - 11100110 d8
      // xor
      case 0xa8: case 0xa9: case 0xaa: case 0xab: case 0xac: case 0xad: case 0xaf:
        boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_xor); break; // xra r - 10101sss
-     case 0xae: 
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_xor); break; // xra m - 10101110
-     case 0xee:
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_xor); break; // xri d8 - 11101110 d8
+     case 0xae: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_xor); break; // xra m - 10101110
+     case 0xee: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_xor); break; // xri d8 - 11101110 d8
      // or
      case 0xb0: case 0xb1: case 0xb2: case 0xb3: case 0xb4: case 0xb5: case 0xb7:
        boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_or); break; // ora r - 10110sss
-     case 0xb6: 
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_or); break; // ora m - 10110110
-     case 0xf6:
-       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_or); break; // ori d8 - 11110110 d8
+     case 0xb6: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_or); break; // ora m - 10110110
+     case 0xf6: boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_or); break; // ori d8 - 11110110 d8
 
      case 0xb8: case 0xb9: case 0xba: case 0xbb: case 0xbc: case 0xbd: case 0xbf:
        cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER); break; // cmp r - 10111sss
-     case 0xbe: 
-       cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY); break; // cmp r - 10111sss
-     case 0xfe: 
-       cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE); break; // cpi d8 - 11111110
+     case 0xbe: cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY); break; // cmp r - 10111sss
+     case 0xfe: cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE); break; // cpi d8 - 11111110
 
-     case 0x07:
-       rotate_left(WITHOUT_CARRY); break; // rlc - 00000111
-     case 0x0f:
-       rotate_right(WITHOUT_CARRY); break; // rrc - 00001111
-     case 0x17:
-       rotate_left(WITH_CARRY); break; // ral - 00010111
-     case 0x1f:
-       rotate_right(WITH_CARRY); break; // rar - 00011111
+     case 0x07: rotate_left(WITHOUT_CARRY); break; // rlc - 00000111
+     case 0x0f: rotate_right(WITHOUT_CARRY); break; // rrc - 00001111
+     case 0x17: rotate_left(WITH_CARRY); break; // ral - 00010111
+     case 0x1f: rotate_right(WITH_CARRY); break; // rar - 00011111
 
-     case 0x2f:
-       cma(); break; // cma - 00101111
-     case 0x37:
-       stc(); break; // stc - 00110111
-     case 0x3f:
-       cmc(); break; // cmc - 00111111
+     case 0x2f: cma(); break; // cma - 00101111
+     case 0x37: stc(); break; // stc - 00110111
+     case 0x3f: cmc(); break; // cmc - 00111111
 
      case 0xc5: case 0xd5: case 0xe5: 
        push_rp(INS_EXTRACT_REGISTERPAIR(ins)); break; // push rp - 11rp0101
-     case 0xf5:
-       push_psw(); break; // push psw - 11110101
+     case 0xf5: push_psw(); break;                    // push psw - 11110101
+
      case 0xc1: case 0xd1: case 0xe1:  
        pop_rp(INS_EXTRACT_REGISTERPAIR(ins)); break; // pop rp - 11rp0001
-     case 0xf1:
-       pop_psw(); break; // pop psw - 11110001
+     case 0xf1: pop_psw(); break;                    // pop psw - 11110001
 
-     case 0xe3:
-       xthl(); break; // xthl - 11100010
-     case 0xf9:
-       sphl(); break; // sphl - 11111001
+     case 0xe3: xthl(); break; // xthl - 11100010
+     case 0xf9: sphl(); break; // sphl - 11111001
 
-     case 0xd3:
-       out(); break; // out port - 11010011 d8
-     case 0xdb:
-       in(); break; // in port - 11011011 d8
+     case 0xd3: out(); break; // out port - 11010011 d8
+     case 0xdb: in(); break; // in port - 11011011 d8
 
-     case 0x76:
-       hlt(); break; // hlt - 01110110
+     case 0x76: hlt(); break; // hlt - 01110110
 
-     case 0xf3:
-       di(); break; // di - 11110011
-     case 0xfb:
-       ei(); break; // ei - 11111011
+     case 0xf3: di(); break; // di - 11110011
+     case 0xfb: ei(); break; // ei - 11111011
 
     default:
       std::stringstream ss;
@@ -316,6 +277,15 @@ uint8_t CPU::get_register(uint8_t rg) {
 
 uint16_t CPU::get_register_pair_from_idx(unsigned int register_pair_idx) {
   return (m_regs[register_pair_idx] << 8) | m_regs[register_pair_idx+1];
+}
+
+uint8_t CPU::get_addressing_mode_data(uint8_t rg, uint8_t addressing_mode) {
+  switch(addressing_mode) {
+    case ADDRESSING_MODE_REGISTER: return get_register(rg);
+    case ADDRESSING_MODE_MEMORY: return m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+    case ADDRESSING_MODE_IMMEDIATE: return fetch_byte();
+  }
+  return 0x0;
 }
 
 uint8_t condition_is_met(bool condition) {
@@ -395,20 +365,8 @@ void CPU::hlt() {
 void CPU::boolean_operation(uint8_t rg, unsigned int addressing_mode, uint8_t (*operator_func_ptr)(uint8_t, uint8_t)) {
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
-  uint8_t data = 0;
 
-  switch(addressing_mode) {
-    case ADDRESSING_MODE_REGISTER:
-      data = get_register(rg);
-      break;
-    case ADDRESSING_MODE_MEMORY:
-      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
-      break;
-    case ADDRESSING_MODE_IMMEDIATE:
-      data = fetch_byte();
-      break;
-  }
-
+  uint8_t data = get_addressing_mode_data(rg, addressing_mode);
   m_regs[REGISTER_A] = (*operator_func_ptr)(m_regs[REGISTER_A], data);
 
   update_zero_flag(m_regs[REGISTER_A] == 0);
@@ -421,19 +379,8 @@ void CPU::boolean_operation(uint8_t rg, unsigned int addressing_mode, uint8_t (*
 void CPU::cmp(uint8_t rg, unsigned int addressing_mode) {
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
-  uint8_t data = 0;
 
-  switch(addressing_mode) {
-    case ADDRESSING_MODE_REGISTER:
-      data = get_register(rg);
-      break;
-    case ADDRESSING_MODE_MEMORY:
-      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
-      break;
-    case ADDRESSING_MODE_IMMEDIATE:
-      data = fetch_byte();
-      break;
-  }
+  uint8_t data = get_addressing_mode_data(rg, addressing_mode);
 
   uint8_t result = binary_add(m_regs[REGISTER_A], ~data + 1, carry, aux_carry);
 
@@ -565,20 +512,8 @@ uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_
 void CPU::add(uint8_t rg, unsigned int addressing_mode, bool with_carry){
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
-  uint8_t data = 0;
 
-  switch(addressing_mode) {
-    case ADDRESSING_MODE_REGISTER:
-      data = get_register(rg);
-      break;
-    case ADDRESSING_MODE_MEMORY:
-      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
-      break;
-    case ADDRESSING_MODE_IMMEDIATE:
-      data = fetch_byte();
-      break;
-  }
-
+  uint8_t data = get_addressing_mode_data(rg, addressing_mode);
   m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, aux_carry);
   if(with_carry) {
     m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], get_status_flag(FLAG_CY), carry, aux_carry);
@@ -594,20 +529,8 @@ void CPU::add(uint8_t rg, unsigned int addressing_mode, bool with_carry){
 void CPU::sub(uint8_t rg, unsigned int addressing_mode, bool with_borrow){
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
-  uint8_t data = 0;
 
-  switch(addressing_mode) {
-    case ADDRESSING_MODE_REGISTER:
-      data = get_register(rg);
-      break;
-    case ADDRESSING_MODE_MEMORY:
-      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
-      break;
-    case ADDRESSING_MODE_IMMEDIATE:
-      data = fetch_byte();
-      break;
-  }
-  
+  uint8_t data = get_addressing_mode_data(rg, addressing_mode);
   // two's complement
   data = ~data + 1;
 

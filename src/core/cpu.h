@@ -144,6 +144,8 @@ private:
 
   uint16_t get_register_pair_from_idx(unsigned int register_pair_idx);
 
+  uint8_t get_addressing_mode_data(uint8_t rg, uint8_t addressing_mode);
+
 #define X(flag, name) void update_##name##_flag(bool is_##name);
   LIST_OF_FLAGS
 #undef X
