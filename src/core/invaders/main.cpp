@@ -72,7 +72,7 @@ int main(int argc, char* argv[]){
   std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
   bus->load_rom(rom_file, rom_file_size);
 
-  CPU cpu(std::move(bus));
+  CPU cpu(bus.get());
 
   bool debug_cpu_running {false};
 
@@ -85,9 +85,9 @@ int main(int argc, char* argv[]){
 
 // TODO: make a seperate function for update frame specific to debugger and clean up some of this mess
 #ifndef NDEBUG
-      while(cpu.running()){
+      while(cpu.running){
         cpu_state = cpu.get_cpu_state();
-        memory_state = dynamic_cast<InvadersBus*>(cpu.get_bus())->get_memory_state();
+        memory_state = bus->get_memory_state();
 
         // update_frame() returns 1 on exiting gui
         if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
@@ -100,8 +100,9 @@ int main(int argc, char* argv[]){
           step_through_cpu = false;
         }
 #else
-      while(cpu.running()){
+      while(cpu.running){
 
+        memory_state = bus->get_memory_state();
         // update_frame() returns 1 on exiting gui
         if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
           gui_running = false;

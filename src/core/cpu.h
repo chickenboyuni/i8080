@@ -10,6 +10,7 @@
 #include "bus.h"
 
 #define NUM_OF_INSTRUCTIONS 0x100
+#define CPU_CLOCK_RATE 2000000 // 2 MHz
 
 #define LIST_OF_FLAGS \
     X(Z, zero) \
@@ -43,39 +44,84 @@ enum FlagBits : uint8_t {
   FLAG_CY = 1 << 0
 };
 
-enum class ArithmeticMode {
-  Register,
-  Memory,
-  Immediate 
+enum AddressingMode : unsigned int {
+  ADDRESSING_MODE_REGISTER,
+  ADDRESSING_MODE_MEMORY,
+  ADDRESSING_MODE_IMMEDIATE,
 };
+
+typedef struct InterruptSystem {
+  bool enabled{false};
+  bool waiting{false};
+  uint8_t instruction {};
+} InterruptSystem;
+
+const uint8_t instruction_clock_cycles[NUM_OF_INSTRUCTIONS] = {
+  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+  4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4,
+  4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+  7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 11, 11, 17, 7, 11,
+  5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 10, 11, 17, 7, 11,
+  5, 10, 10, 18, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11,
+  5, 10, 10, 4, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11
+};
+
+const std::unordered_map<uint8_t, unsigned int> regpairs_map = {
+  {0b00, REGISTER_PAIR_BC},
+  {0b01, REGISTER_PAIR_DE},
+  {0b10, REGISTER_PAIR_HL}
+};
+
+const std::unordered_map<uint8_t, unsigned int> regs_map = {
+  {0b111, REGISTER_A},
+  {0b000, REGISTER_B},
+  {0b001, REGISTER_C},
+  {0b010, REGISTER_D},
+  {0b011, REGISTER_E},
+  {0b100, REGISTER_H},
+  {0b101, REGISTER_L}
+}; 
 
 uint8_t condition_is_met(bool condition);
 uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry);
 
 class CPU {
 public:
-  CPU(std::unique_ptr<Bus>&& bus);
-  ~CPU();
 
-  bool running(); 
+  bool running{true};
 
+  CPU(Bus* bus);
+  ~CPU() = default;
+
+  bool halted() { return m_halted; }; 
   void reset();
 
   CpuState get_cpu_state();
-  Bus* get_bus();
+  uint16_t get_pc() { return m_pc; };
 
-  void fetch_execute_instruction();
+  void request_interrupt(uint8_t ins);
+  uint8_t fetch_execute_instruction();
 
 private:
 
-  bool m_running{true};
+  bool m_halted{false};
 
-  std::unique_ptr<Bus> m_bus;
+  Bus* m_bus;
+  InterruptSystem m_interrupt {};
 
   uint16_t m_pc = 0x00; // program counter
   uint16_t m_sp = 0x00; // stack pointer
 
-  uint8_t m_psw = 0x0; // processor status word
+  uint8_t m_psw = 0b00000010; // processor status word
   uint8_t m_regs[REGISTER_COUNT] {};
 
   uint8_t fetch_byte();
@@ -104,23 +150,50 @@ private:
 
   bool get_status_flag(uint8_t flag_type);
 
+  void push_rp(uint8_t rp);
+  void push_psw();
+  void pop_rp(uint8_t rp);
+  void pop_psw();
+
+  void xthl();
+  void sphl();
+
+  void out();
+  void in();
+
+  void ei();
+  void di();
+
+  void hlt();
+
+  void boolean_operation(uint8_t rg, unsigned int addressing_mode, uint8_t (*operator_func_ptr)(uint8_t, uint8_t));
+
+  void cmp(uint8_t rg, unsigned int addressing_mode);
+
+  void rotate_left(bool through_carry);
+  void rotate_right(bool through_carry);
+
+  void cma();
+  void cmc();
+  void stc();
+
   bool branch_condition_is_met(uint8_t condition);
 
   void jmp();
-  void jmp_conditional(uint8_t condition_bit_pattern);
+  bool jmp_conditional(uint8_t condition_bit_pattern);
 
   void call();
-  void call_conditional(uint8_t condition_bit_pattern);
+  bool call_conditional(uint8_t condition_bit_pattern);
 
   void ret();
-  void ret_conditional(uint8_t condition_bit_pattern);
+  bool ret_conditional(uint8_t condition_bit_pattern);
 
   void rst(uint8_t number);
 
   void pchl();
 
-  void add(uint8_t rg, ArithmeticMode mode, bool with_carry);
-  void sub(uint8_t rg, ArithmeticMode mode, bool with_borrow);
+  void add(uint8_t rg, unsigned int addressing_mode, bool with_carry);
+  void sub(uint8_t rg, unsigned int addressing_mode, bool with_borrow);
   void inr_r(uint8_t rg, bool decrement);
   void inr_m(bool decrement);
   void inx(uint8_t rp, bool decrement);
@@ -147,22 +220,6 @@ private:
 
   void lda();
   void ldax(uint8_t rp);
-
-  const std::unordered_map<uint8_t, unsigned int> m_regpairs_map = {
-    {0b00, REGISTER_PAIR_BC},
-    {0b01, REGISTER_PAIR_DE},
-    {0b10, REGISTER_PAIR_HL}
-  };
-
-  const std::unordered_map<uint8_t, unsigned int> m_regs_map = {
-    {0b111, REGISTER_A},
-    {0b000, REGISTER_B},
-    {0b001, REGISTER_C},
-    {0b010, REGISTER_D},
-    {0b011, REGISTER_E},
-    {0b100, REGISTER_H},
-    {0b101, REGISTER_L}
-  }; 
 };
 
 #endif /* CPU_H */

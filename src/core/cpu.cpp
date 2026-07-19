@@ -5,18 +5,31 @@
 #include "cpu.h"
 #include "../common/logging.h"
 
-CPU::CPU(std::unique_ptr<Bus>&& bus) : m_bus(std::move(bus)) {
+enum CarryIndicator {
+  WITHOUT_CARRY = 0,
+  WITH_CARRY = 1
+};
+
+enum IncrementMode {
+  MODE_INCREMENT = 0,
+  MODE_DECREMENT = 1
+};
+
+uint8_t bit_and(uint8_t lhs, uint8_t rhs) { return lhs & rhs; }
+uint8_t bit_xor(uint8_t lhs, uint8_t rhs) { return lhs ^ rhs; }
+uint8_t bit_or(uint8_t lhs, uint8_t rhs) { return lhs | rhs; }
+
+CPU::CPU(Bus* bus) : m_bus(bus) {
   reset();
 }
 
-CPU::~CPU() = default;
-
-bool CPU::running() {
-  return m_running;
-}
-
 void CPU::reset() {
-  m_running = true;
+  running = true;
+  m_halted = false;
+
+  m_interrupt.enabled = false;
+  m_interrupt.waiting = false;
+  m_interrupt.instruction = 0x0;
 
   m_pc = 0x00;
   m_sp = 0x00;
@@ -52,10 +65,6 @@ CpuState CPU::get_cpu_state() {
   return cpu_state;
 }
 
-Bus* CPU::get_bus() {
-  return m_bus.get();
-}
-
 uint8_t CPU::fetch_byte(){
   return m_bus->memory_read(m_pc++);
 }
@@ -66,8 +75,24 @@ uint16_t CPU::fetch_2bytes() {
   return (high_order_byte << 8) | low_order_byte; 
 }
 
-void CPU::fetch_execute_instruction() {
-  uint8_t ins = fetch_byte();
+void CPU::request_interrupt(uint8_t ins) {
+  m_interrupt.instruction = ins;
+  m_interrupt.waiting = true;
+  m_halted = false;
+}
+
+uint8_t CPU::fetch_execute_instruction() {
+
+  uint8_t ins {};
+  if(m_interrupt.enabled && m_interrupt.waiting) {
+    ins = m_interrupt.instruction;
+    m_interrupt.instruction = 0x0;
+    m_interrupt.waiting = false;
+  } else {
+    ins = fetch_byte();
+  }
+
+  uint8_t instruction_cycles = instruction_clock_cycles[ins];
 
   switch(ins) {
     case 0x00: case 0x08: case 0x10: case 0x18: case 0x20: case 0x28: case 0x30:
@@ -114,46 +139,45 @@ void CPU::fetch_execute_instruction() {
 
     // add without carry
     case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x87:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, false); break; // add r - 10000sss 
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITHOUT_CARRY); break; // add r - 10000sss 
     case 0x86:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, false); break; // add m - 10000110
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // add m - 10000110
     case 0xc6:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, false); break; // adi d8 - 11000110 d8
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // adi d8 - 11000110 d8
     // add with carry
     case 0x88: case 0x89: case 0x8a: case 0x8b: case 0x8c: case 0x8d: case 0x8f:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, true); break; // adc r - 10001sss 
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITH_CARRY); break; // adc r - 10001sss 
     case 0x8e: 
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, true); break; // adc m - 10001110
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // adc m - 10001110
     case 0xce:
-      add(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, true); break; // aci d8 - 11001110 d8
+      add(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // aci d8 - 11001110 d8
 
     // sub without borrow 
     case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x97:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, false); break; // sub r - 10010sss
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITHOUT_CARRY); break; // sub r - 10010sss
     case 0x96:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, false); break; // sub m - 10010110
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITHOUT_CARRY); break; // sub m - 10010110
     case 0xd6:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, false); break; // sui data - 11010110 d8
-    // sub with borrow
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITHOUT_CARRY); break; // sui data - 11010110 d8 sub with borrow
     case 0x98: case 0x99: case 0x9a: case 0x9b: case 0x9c: case 0x9d: case 0x9f:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Register, true); break; // sbb r - 10011sss
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, WITH_CARRY); break; // sbb r - 10011sss
     case 0x9e: 
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Memory, true); break; // sbb m - 10011110
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, WITH_CARRY); break; // sbb m - 10011110
     case 0xde:
-      sub(INS_EXTRACT_SSS_REGISTER(ins), ArithmeticMode::Immediate, true); break; // sbi d8 - 11011110 d8
+      sub(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, WITH_CARRY); break; // sbi d8 - 11011110 d8
 
     case 0x04: case 0x0c: case 0x14: case 0x1c: case 0x24: case 0x2c: case 0x3c:
-      inr_r(INS_EXTRACT_DDD_REGISTER(ins), false); break; // inr r - 00ddd100
+      inr_r(INS_EXTRACT_DDD_REGISTER(ins), MODE_INCREMENT); break; // inr r - 00ddd100
     case 0x34: 
-      inr_m(false); break; // inr m - 00110100
+      inr_m(MODE_INCREMENT); break; // inr m - 00110100
     case 0x05: case 0x0d: case 0x15: case 0x1d: case 0x25: case 0x2d: case 0x3d:
-      inr_r(INS_EXTRACT_DDD_REGISTER(ins), true); break; // dcr r - 00ddd101
+      inr_r(INS_EXTRACT_DDD_REGISTER(ins), MODE_DECREMENT); break; // dcr r - 00ddd101
     case 0x35: 
-      inr_m(true); break; // dcr m - 00110101
+      inr_m(MODE_DECREMENT); break; // dcr m - 00110101
     case 0x03: case 0x13: case 0x23: case 0x33:
-      inx(INS_EXTRACT_REGISTERPAIR(ins), false); break; // inx rp - 00rp0011
+      inx(INS_EXTRACT_REGISTERPAIR(ins), MODE_INCREMENT); break; // inx rp - 00rp0011
     case 0x0b: case 0x1b: case 0x2b: case 0x3b:
-      inx(INS_EXTRACT_REGISTERPAIR(ins), true); break; // dcx rp - 00rp1011
+      inx(INS_EXTRACT_REGISTERPAIR(ins), MODE_DECREMENT); break; // dcx rp - 00rp1011
 
     case 0x09: case 0x19: case 0x29: case 0x39:
       dad(INS_EXTRACT_REGISTERPAIR(ins)); break; // dad rp - 00rp1001
@@ -167,13 +191,13 @@ void CPU::fetch_execute_instruction() {
 
     case 0xcd:
       call(); break; // call addr - 11001101 laddr haddr
-    case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc: case 0xfe:
-      call_conditional(INS_EXTRACT_CONDITION(ins)); break; // cconditon addr - 11ccc100 laddr haddr
+    case 0xc4: case 0xcc: case 0xd4: case 0xdc: case 0xe4: case 0xec: case 0xf4: case 0xfc:
+      if(call_conditional(INS_EXTRACT_CONDITION(ins))) { instruction_cycles += 6; } ; break; // cconditon addr - 11ccc100 laddr haddr
 
     case 0xc9:
       ret(); break; // ret - 11001001
     case 0xc0: case 0xc8: case 0xd0: case 0xd8: case 0xe0: case 0xe8: case 0xf0: case 0xf8:
-      ret_conditional(INS_EXTRACT_CONDITION(ins)); break; // rcondition - 11ccc000
+      if(ret_conditional(INS_EXTRACT_CONDITION(ins))) { instruction_cycles += 6; }; break; // rcondition - 11ccc000
 
     case 0xc7: case 0xcf: case 0xd7: case 0xdf: case 0xe7: case 0xef: case 0xf7: case 0xff:
       rst((ins & 0b00111000) >> 3); break; // rst n - 11nnn111
@@ -181,12 +205,85 @@ void CPU::fetch_execute_instruction() {
     case 0xe9:
       pchl(); break; // pchl - 11101001
 
+    // and
+    case 0xa0: case 0xa1: case 0xa2: case 0xa3: case 0xa4: case 0xa5: case 0xa7:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_and); break; // ana r - 10100sss
+    case 0xa6:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_and); break; // ana m - 10100110
+    case 0xe6:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_and); break; // ani d8 - 11100110 d8
+     // xor
+     case 0xa8: case 0xa9: case 0xaa: case 0xab: case 0xac: case 0xad: case 0xaf:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_xor); break; // xra r - 10101sss
+     case 0xae: 
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_xor); break; // xra m - 10101110
+     case 0xee:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_xor); break; // xri d8 - 11101110 d8
+     // or
+     case 0xb0: case 0xb1: case 0xb2: case 0xb3: case 0xb4: case 0xb5: case 0xb7:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER, bit_or); break; // ora r - 10110sss
+     case 0xb6: 
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY, bit_or); break; // ora m - 10110110
+     case 0xf6:
+       boolean_operation(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE, bit_or); break; // ori d8 - 11110110 d8
+
+     case 0xb8: case 0xb9: case 0xba: case 0xbb: case 0xbc: case 0xbd: case 0xbf:
+       cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_REGISTER); break; // cmp r - 10111sss
+     case 0xbe: 
+       cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_MEMORY); break; // cmp r - 10111sss
+     case 0xfe: 
+       cmp(INS_EXTRACT_SSS_REGISTER(ins), ADDRESSING_MODE_IMMEDIATE); break; // cpi d8 - 11111110
+
+     case 0x07:
+       rotate_left(WITHOUT_CARRY); break; // rlc - 00000111
+     case 0x0f:
+       rotate_right(WITHOUT_CARRY); break; // rrc - 00001111
+     case 0x17:
+       rotate_left(WITH_CARRY); break; // ral - 00010111
+     case 0x1f:
+       rotate_right(WITH_CARRY); break; // rar - 00011111
+
+     case 0x2f:
+       cma(); break; // cma - 00101111
+     case 0x37:
+       stc(); break; // stc - 00110111
+     case 0x3f:
+       cmc(); break; // cmc - 00111111
+
+     case 0xc5: case 0xd5: case 0xe5: 
+       push_rp(INS_EXTRACT_REGISTERPAIR(ins)); break; // push rp - 11rp0101
+     case 0xf5:
+       push_psw(); break; // push psw - 11110101
+     case 0xc1: case 0xd1: case 0xe1:  
+       pop_rp(INS_EXTRACT_REGISTERPAIR(ins)); break; // pop rp - 11rp0001
+     case 0xf1:
+       pop_psw(); break; // pop psw - 11110001
+
+     case 0xe3:
+       xthl(); break; // xthl - 11100010
+     case 0xf9:
+       sphl(); break; // sphl - 11111001
+
+     case 0xd3:
+       out(); break; // out port - 11010011 d8
+     case 0xdb:
+       in(); break; // in port - 11011011 d8
+
+     case 0x76:
+       hlt(); break; // hlt - 01110110
+
+     case 0xf3:
+       di(); break; // di - 11110011
+     case 0xfb:
+       ei(); break; // ei - 11111011
+
     default:
       std::stringstream ss;
       ss << "unimplemented instruction \e[1m0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(ins) 
          << "\e[0m at address \e[1m0x" << std::setfill('0') << std::setw(4) << m_pc-1;
       PANIC(ss.str());
   }
+  return instruction_cycles;
 }
 
 void CPU::set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh){
@@ -194,7 +291,7 @@ void CPU::set_register_pair(uint8_t rp, uint8_t bl, uint8_t bh){
     m_sp = (bh << 8) | bl;
     return;
   }
-  unsigned int first_register_idx = m_regpairs_map.at(rp);
+  unsigned int first_register_idx = regpairs_map.at(rp);
   m_regs[first_register_idx] = bh;
   m_regs[first_register_idx+1] = bl;
 }
@@ -203,17 +300,17 @@ uint16_t CPU::get_register_pair(uint8_t rp){
   if(rp == 0b11){
     return m_sp;
   }
-  unsigned int register_pair_idx = m_regpairs_map.at(rp);
+  unsigned int register_pair_idx = regpairs_map.at(rp);
   return get_register_pair_from_idx(register_pair_idx);
 }
 
 void CPU::set_register(uint8_t rg, uint8_t data) {
-  unsigned int register_idx = m_regs_map.at(rg);
+  unsigned int register_idx = regs_map.at(rg);
   m_regs[register_idx] = data;
 }
 
 uint8_t CPU::get_register(uint8_t rg) {
-  unsigned int register_idx = m_regs_map.at(rg);
+  unsigned int register_idx = regs_map.at(rg);
   return m_regs[register_idx];
 }
 
@@ -239,6 +336,142 @@ bool CPU::get_status_flag(uint8_t flag_type) {
   return !!(m_psw & flag_type);
 }
 
+void CPU::push_rp(uint8_t rp) {
+  uint16_t rp_content = get_register_pair(rp);
+  m_bus->memory_write(m_sp-1, rp_content >> 8);
+  m_bus->memory_write(m_sp-2, rp_content & 0x00ff);
+  m_sp -= 2;
+}
+
+void CPU::push_psw() {
+  m_bus->memory_write(m_sp-1, m_regs[REGISTER_A]);
+  m_bus->memory_write(m_sp-2, m_psw);
+  m_sp -= 2;
+}
+
+void CPU::pop_rp(uint8_t rp) {
+  set_register_pair(rp, m_bus->memory_read(m_sp), (m_bus->memory_read(m_sp+1)));
+  m_sp += 2;
+}
+
+void CPU::pop_psw() {
+  m_psw = m_bus->memory_read(m_sp);
+  m_regs[REGISTER_A] = m_bus->memory_read(m_sp+1);
+  m_sp += 2;
+}
+
+void CPU::xthl() {
+  uint8_t bl = m_bus->memory_read(m_sp);
+  uint8_t bh = m_bus->memory_read(m_sp+1);
+  set_register_pair(0b10, bl, bh);
+}
+
+void CPU::sphl() {
+  m_sp = get_register_pair(0b10);
+}
+
+void CPU::out() {
+  uint8_t port = fetch_byte();
+  m_bus->io_write(port, m_regs[REGISTER_A]);
+}
+
+void CPU::in() {
+  uint8_t port = fetch_byte();
+  m_regs[REGISTER_A] = m_bus->io_read(port);
+}
+
+void CPU::ei() {
+  m_interrupt.enabled = true;
+}
+
+void CPU::di() {
+  m_interrupt.enabled = false;
+}
+
+void CPU::hlt() {
+  m_halted = true;
+}
+
+void CPU::boolean_operation(uint8_t rg, unsigned int addressing_mode, uint8_t (*operator_func_ptr)(uint8_t, uint8_t)) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t data = 0;
+
+  switch(addressing_mode) {
+    case ADDRESSING_MODE_REGISTER:
+      data = get_register(rg);
+      break;
+    case ADDRESSING_MODE_MEMORY:
+      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+      break;
+    case ADDRESSING_MODE_IMMEDIATE:
+      data = fetch_byte();
+      break;
+  }
+
+  m_regs[REGISTER_A] = (*operator_func_ptr)(m_regs[REGISTER_A], data);
+
+  update_zero_flag(m_regs[REGISTER_A] == 0);
+  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
+  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_carry_flag(carry);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::cmp(uint8_t rg, unsigned int addressing_mode) {
+  unsigned int carry = 0;
+  unsigned int aux_carry = 0;
+  uint8_t data = 0;
+
+  switch(addressing_mode) {
+    case ADDRESSING_MODE_REGISTER:
+      data = get_register(rg);
+      break;
+    case ADDRESSING_MODE_MEMORY:
+      data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
+      break;
+    case ADDRESSING_MODE_IMMEDIATE:
+      data = fetch_byte();
+      break;
+  }
+
+  uint8_t result = binary_add(m_regs[REGISTER_A], ~data + 1, carry, aux_carry);
+
+  update_zero_flag(m_regs[REGISTER_A] == data);
+  update_sign_flag(result & 0b10000000);
+  update_parity_flag((result % 2) == 0);
+  update_carry_flag(m_regs[REGISTER_A] < data);
+  update_aux_carry_flag(aux_carry);
+}
+
+void CPU::rotate_left(bool through_carry) {
+  uint8_t a_7 = m_regs[REGISTER_A] & 0b10000000;
+  uint8_t updated_a_0 = (through_carry) ? get_status_flag(FLAG_CY) : (a_7 >> 7);
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] << 1;
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] | updated_a_0;
+  update_carry_flag(a_7 >> 7);
+}
+
+void CPU::rotate_right(bool through_carry) {
+  uint8_t a_0 = m_regs[REGISTER_A] & 0b00000001;
+  uint8_t updated_a_7 = (through_carry) ? (get_status_flag(FLAG_CY) << 7) : (a_0 << 7);
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] >> 1;
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] | updated_a_7;
+  update_carry_flag(a_0);
+}
+
+void CPU::cma() {
+  m_regs[REGISTER_A] = ~m_regs[REGISTER_A];
+}
+
+void CPU::cmc() {
+  update_carry_flag(!get_status_flag(FLAG_CY));
+}
+
+void CPU::stc() {
+  update_carry_flag(1);
+}
+
 bool CPU::branch_condition_is_met(uint8_t condition) {
   switch(condition) {
     case 0b000: return !get_status_flag(FLAG_Z);
@@ -262,11 +495,13 @@ void CPU::jmp() {
   m_pc = addr;
 }
 
-void CPU::jmp_conditional(uint8_t condition_bit_pattern) {
+bool CPU::jmp_conditional(uint8_t condition_bit_pattern) {
   uint16_t addr = fetch_2bytes();
   if(branch_condition_is_met(condition_bit_pattern)) {
     m_pc = addr;
+    return true;
   }
+  return false;
 }
 
 void CPU::call() {
@@ -277,14 +512,16 @@ void CPU::call() {
   m_pc = addr;
 }
 
-void CPU::call_conditional(uint8_t condition_bit_pattern) {
+bool CPU::call_conditional(uint8_t condition_bit_pattern) {
   uint16_t addr = fetch_2bytes();
   if(branch_condition_is_met(condition_bit_pattern)) {
     m_bus->memory_write(m_sp-1, m_pc >> 8);
     m_bus->memory_write(m_sp-2, m_pc & 0x00ff);
     m_sp -= 2;
     m_pc = addr;
+    return true;
   }
+  return false;
 }
 
 void CPU::ret() {
@@ -292,11 +529,13 @@ void CPU::ret() {
   m_sp += 2;
 }
 
-void CPU::ret_conditional(uint8_t condition_bit_pattern) {
+bool CPU::ret_conditional(uint8_t condition_bit_pattern) {
   if(branch_condition_is_met(condition_bit_pattern)) {
     m_pc = (m_bus->memory_read(m_sp+1) << 8) | m_bus->memory_read(m_sp);
     m_sp += 2;
+    return true;
   }
+  return false;
 }
 
 void CPU::rst(uint8_t number) {
@@ -323,19 +562,19 @@ uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_
   return res;
 }
 
-void CPU::add(uint8_t rg, ArithmeticMode mode, bool with_carry){
+void CPU::add(uint8_t rg, unsigned int addressing_mode, bool with_carry){
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
   uint8_t data = 0;
 
-  switch(mode) {
-    case ArithmeticMode::Register:
+  switch(addressing_mode) {
+    case ADDRESSING_MODE_REGISTER:
       data = get_register(rg);
       break;
-    case ArithmeticMode::Memory:
+    case ADDRESSING_MODE_MEMORY:
       data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
       break;
-    case ArithmeticMode::Immediate:
+    case ADDRESSING_MODE_IMMEDIATE:
       data = fetch_byte();
       break;
   }
@@ -352,19 +591,19 @@ void CPU::add(uint8_t rg, ArithmeticMode mode, bool with_carry){
   update_aux_carry_flag(aux_carry);
 }
 
-void CPU::sub(uint8_t rg, ArithmeticMode mode, bool with_borrow){
+void CPU::sub(uint8_t rg, unsigned int addressing_mode, bool with_borrow){
   unsigned int carry = 0;
   unsigned int aux_carry = 0;
   uint8_t data = 0;
 
-  switch(mode) {
-    case ArithmeticMode::Register:
+  switch(addressing_mode) {
+    case ADDRESSING_MODE_REGISTER:
       data = get_register(rg);
       break;
-    case ArithmeticMode::Memory:
+    case ADDRESSING_MODE_MEMORY:
       data = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
       break;
-    case ArithmeticMode::Immediate:
+    case ADDRESSING_MODE_IMMEDIATE:
       data = fetch_byte();
       break;
   }
