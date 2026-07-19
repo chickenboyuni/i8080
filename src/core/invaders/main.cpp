@@ -8,6 +8,10 @@
 #include "../../gui/gui.h"
 #include "../../disasm/disasm.h"
 
+#define MAX_BREAKPOINTS 16
+#define REFRESH_RATE 60 // Hz
+#define VBLANK_RATE (CPU_CLOCK_RATE / REFRESH_RATE)
+
 size_t load_invaders_rom(uint8_t* rom_buffer, const std::filesystem::path& invaders_rom_path){
   size_t rom_buffer_size{};
   rom_buffer_size += read_bin_file(&rom_buffer[INVADERS_H_START_ADDRESS], INVADERS_ROM_SIZE-rom_buffer_size, invaders_rom_path / "invaders.h");
@@ -36,80 +40,76 @@ int main(int argc, char* argv[]){
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr<InvadersGUI> igui = std::make_unique<InvadersGUI>();
-  int gui_running = !igui->setup();
+  InvadersGUI igui {};
+  int gui_running = !igui.setup();
 
-#ifndef NDEBUG
-    // TEMPORARY: just so i can test and implement instructions one by one for now
-    // small test for implemented instructions
-    uint8_t rom_file[INVADERS_ROM_SIZE] {
-                                         0x3e, 0x01, // mvi a, 0x01
-                                         0x32, 0x00, 0x20, // sta 0x2000
-                                         0x21, 0x00, 0x20, // lxi hl, 0x2000
-                                         0x3e, 0xff, // mvi a, 0xff
-                                         0x34, 
-                                         0x86, // add [hl] (to accumulator)
-                                         0x3e, 0x26, // mvi a, 0x26
-                                         0x06, 0x18, // mvi b, 0x18
-                                         0x80, // add b (to accumulator)
-                                         0x27,
-                                         0xc6, 0x03, // adi 0x03
-                                         0x06, 0x02, // mvi b, 0x01
-                                         0x0b, // daa
-                                         0x31, 0x01, 0x00, // lxi sp, 0x0001
-                                         0x39, // dad sp
-                                         0x03,
-                                         0x13,
-                                         0x90, // sub b
-                                         0xff
-    };
-    size_t rom_file_size = INVADERS_ROM_SIZE;
-#else
-    uint8_t rom_file[INVADERS_ROM_SIZE] {};
-    size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
-#endif
+  uint8_t rom_file[INVADERS_ROM_SIZE] {};
+  size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
 
   std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
   bus->load_rom(rom_file, rom_file_size);
 
   CPU cpu(bus.get());
 
-  bool debug_cpu_running {false};
-
   while(gui_running) {
 
-    bool step_through_cpu {false};
-    try {
-      CpuState cpu_state {};
-      MemoryState memory_state {};
-
-// TODO: make a seperate function for update frame specific to debugger and clean up some of this mess
 #ifndef NDEBUG
+
+    bool debug_cpu_running {false};
+    bool step_through_cpu {false};
+
+    CpuState cpu_state {};
+
+    unsigned int breakpoints[MAX_BREAKPOINTS] = {};
+#endif /* ifndef NDEBUG */
+
+    MemoryState memory_state {};
+
+    size_t total_cycles = 0;
+    bool interrupt_requested = false;
+    try {
       while(cpu.running){
-        cpu_state = cpu.get_cpu_state();
         memory_state = bus->get_memory_state();
 
-        // update_frame() returns 1 on exiting gui
-        if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
-          gui_running = false;
-          break;
+#ifndef NDEBUG
+        cpu_state = cpu.get_cpu_state();
+        if((total_cycles > VBLANK_RATE) || !debug_cpu_running){
+          if(igui.update_debugger_window(cpu_state, memory_state, breakpoints, MAX_BREAKPOINTS, step_through_cpu, debug_cpu_running)){
+            gui_running = false;
+            break;
+          }
+        }
+#endif /* ifndef NDEBUG */
+        if((total_cycles > VBLANK_RATE / 2) && !interrupt_requested) {
+          cpu.request_interrupt(0xcf);
+          interrupt_requested = true;
         }
 
-        if(step_through_cpu || debug_cpu_running) {
-          cpu.fetch_execute_instruction();
+        if(total_cycles > VBLANK_RATE) {
+          if(igui.update_game_window(memory_state)){
+            gui_running = false;
+            break;
+          }
+          cpu.request_interrupt(0xd7);
+          total_cycles = 0;
+          interrupt_requested = false;
+        }
+#ifdef NDEBUG
+        if(!cpu.halted()) {
+          total_cycles += cpu.fetch_execute_instruction();
+        }
+#else 
+        if((step_through_cpu || debug_cpu_running) && !cpu.halted()) {
+          total_cycles += cpu.fetch_execute_instruction();
+          for(size_t k = 0; k < MAX_BREAKPOINTS; k++) {
+            if(cpu.get_pc() == breakpoints[k]){
+                debug_cpu_running = false;
+                break;
+            }
+          }
           step_through_cpu = false;
         }
-#else
-      while(cpu.running){
-
-        memory_state = bus->get_memory_state();
-        // update_frame() returns 1 on exiting gui
-        if(igui->update_frame(cpu_state, memory_state, step_through_cpu, debug_cpu_running)){
-          gui_running = false;
-          break;
-        }
-        cpu.fetch_execute_instruction();
-#endif
+#endif /* ifdef NDEBUG */
       }
     } 
 
@@ -122,8 +122,9 @@ int main(int argc, char* argv[]){
     }
 
     cpu.reset();
-  } 
-  igui->destroy();
+  }
+
+  igui.destroy();
 
   return EXIT_SUCCESS;
 }

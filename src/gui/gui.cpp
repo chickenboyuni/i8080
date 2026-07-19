@@ -1,16 +1,6 @@
 #include "gui.h"
 
-int InvadersGUI::setup() {
-
-#ifdef _WIN32
-    ::SetProcessDPIAware();
-#endif
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
-        printf("Error: %s\n", SDL_GetError());
-        return 1;
-    }
-
+int InvadersGUI::setup_debugger_gui() {
 #if defined(__APPLE__)
     // GL 3.2 Core + GLSL 150
     const char* glsl_version = "#version 150";
@@ -29,19 +19,19 @@ int InvadersGUI::setup() {
 
     float main_scale = ImGui_ImplSDL2_GetContentScaleForDisplay(0);
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-    m_window = SDL_CreateWindow("i8080 Emulator", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, (int)(1280 * main_scale), (int)(800 * main_scale), window_flags);
-    if (m_window == nullptr) {
-        printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
+    m_debugger_window = SDL_CreateWindow("i8080 Emulator Debugger", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, (int)(810 * main_scale), (int)(800 * main_scale), window_flags);
+    if (m_debugger_window == nullptr) {
+        fprintf(stderr, "Error: SDL_CreateWindow(): %s\n", SDL_GetError());
         return 1;
     }
 
-    m_gl_context = SDL_GL_CreateContext(m_window);
+    m_gl_context = SDL_GL_CreateContext(m_debugger_window);
     if (m_gl_context == nullptr) {
-        printf("Error: SDL_GL_CreateContext(): %s\n", SDL_GetError());
+        fprintf(stderr, "Error: SDL_GL_CreateContext(): %s\n", SDL_GetError());
         return 1;
     }
 
-    SDL_GL_MakeCurrent(m_window, m_gl_context);
+    SDL_GL_MakeCurrent(m_debugger_window, m_gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
 
     // Setup Dear ImGui context
@@ -54,16 +44,82 @@ int InvadersGUI::setup() {
     ImGui::StyleColorsDark();
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
+    ImGui_ImplSDL2_InitForOpenGL(m_debugger_window, m_gl_context);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
     return 0;
 }
 
-int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_state, bool& debugger_step, bool& debugger_cpu_running) {
+int InvadersGUI::setup() {
+
+#ifdef _WIN32
+    ::SetProcessDPIAware();
+#endif
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+      fprintf(stderr, "Error: %s\n", SDL_GetError());
+      return 1;
+    }
+
+    m_game_window = SDL_CreateWindow("Space Invaders", 0, 0, 224, 256, SDL_WINDOW_SHOWN);
+    if (!m_game_window) {
+      fprintf(stderr, "Could not create SDL window: %s\n", SDL_GetError());
+      return 1;
+    }
+    m_game_renderer = SDL_CreateRenderer(m_game_window, -1, 0);
+    SDL_RenderPresent(m_game_renderer);
+
+#ifndef NDEBUG
+    if(setup_debugger_gui()) { 
+        return 1;
+    }
+#endif
+
+    return 0;
+}
+
+int InvadersGUI::update_game_window(const MemoryState& memory_state) {
+
+#ifndef NDEBUG
+    SDL_GL_MakeCurrent(m_game_window, nullptr);
+#endif
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            return 1;
+        }
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(m_game_window)) {
+            return 1;
+        }
+    }
+
+    SDL_SetRenderDrawColor(m_game_renderer, 0, 0, 0, 0);
+    SDL_RenderClear(m_game_renderer);
+    for (size_t i = 1; i < 224; i++) {
+        int r = 0;
+        for(size_t j = 0; j < 32; j++){
+            uint8_t byte = memory_state.ram_state[0x0400 + (i*0x20) - j];
+            for(int k = 7; k >= 0; k--, r++) {
+                uint8_t colour = !!(byte & (1 << k)) ? 255 : 0;
+                SDL_SetRenderDrawColor(m_game_renderer, colour, colour, colour, colour);
+                SDL_RenderDrawPoint(m_game_renderer, i, r);
+            }
+        }
+    }
+    SDL_RenderPresent(m_game_renderer);
+
+    return 0;
+}
+
+#ifndef NDEBUG
+int InvadersGUI::update_debugger_window(const CpuState& cpu_state, const MemoryState& memory_state, 
+                                        unsigned int breakpoints[], size_t breakpoints_size,
+                                        bool& debugger_step, bool& debugger_cpu_running)
+{
+    SDL_GL_MakeCurrent(m_debugger_window, m_gl_context);
 
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
     ImGuiIO& io = ImGui::GetIO(); 
 
     SDL_Event event;
@@ -73,7 +129,11 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
         if (event.type == SDL_QUIT) {
             return 1;
         }
-        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(m_window)) {
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(m_debugger_window)) {
+            return 1;
+        }
+        // leaving this here so i can close the game window even when its not updating (due to the cpu being paused for example)
+        if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(m_game_window)) {
             return 1;
         }
     }
@@ -82,20 +142,21 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-#ifndef NDEBUG
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
     {
-        ImGui::SetNextWindowPos(ImVec2(viewport->WorkSize.x * 0.3f, viewport->WorkPos.y));
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkSize.x * 0.5f, viewport->WorkPos.y));
         ImGui::SetNextWindowSize(viewport->WorkSize);
 
         static MemoryEditor mem_edit;
-        mem_edit.DrawWindow("Intel 8080 - Memory Editor", memory_state.ram_state, INVADERS_RAM_SIZE);
+        mem_edit.OptShowAscii = false;
+        mem_edit.ReadOnly = true;
+        mem_edit.DrawWindow("Intel 8080 - Memory Editor", memory_state.ram_state, INVADERS_RAM_SIZE, 0x2000);
     }
 
     {
         ImGui::SetNextWindowPos(viewport->WorkPos);
-        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x * 0.3f, viewport->WorkSize.y));
+        ImGui::SetNextWindowSize(ImVec2(viewport->WorkSize.x * 0.5f, viewport->WorkSize.y));
 
         ImGui::Begin("Intel 8080 - Debugger", nullptr, ImGuiWindowFlags_NoCollapse);
 
@@ -117,15 +178,46 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
             debugger_cpu_running = !debugger_cpu_running;
         }
 
+        ImGui::SetNextItemWidth(50.0f);
+
+        static bool breakpoints_initialised = false;
+        static size_t available_breakpoint_slot_idx = 0;
+        for(size_t i = 0; i < breakpoints_size && !breakpoints_initialised; i++) {
+            breakpoints[i] = 0xf0000;
+        }
+        breakpoints_initialised = true;
+
+        static char breakpoint_addr_str[5];
+        unsigned int breakpoint_addr {};
+        if (ImGui::InputText("##addr", breakpoint_addr_str, 5, ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_EnterReturnsTrue)) {
+            if(sscanf(breakpoint_addr_str, "%04x", &breakpoint_addr)){
+                while(available_breakpoint_slot_idx < breakpoints_size && breakpoints[available_breakpoint_slot_idx] != 0xf0000) {
+                    available_breakpoint_slot_idx++;
+                }
+                if(available_breakpoint_slot_idx >= breakpoints_size) {
+                    printf("exceeded max number of breakpoints %lu, can't add anymore\n", breakpoints_size);
+                } else {
+                    breakpoints[available_breakpoint_slot_idx] = breakpoint_addr;
+                    available_breakpoint_slot_idx++;
+                }
+                strcpy(breakpoint_addr_str, "");
+            }
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Breakpoint Address");
+
         const uint8_t* instructions = memory_state.rom_state;
         size_t instructions_size = INVADERS_ROM_SIZE;
 
-        if (ImGui::BeginTable("##Instructions", 3, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 48))) {
+        if (ImGui::BeginTable("##Instructions", 4, ImGuiTableFlags_ScrollY, ImVec2(0.0f, ImGui::GetFontSize() * 45))) {
 
             ImGui::TableSetupColumn("Address", ImGuiTableColumnFlags_WidthFixed, 50.0f);
             ImGui::TableSetupColumn("Instruction Binary", ImGuiTableColumnFlags_WidthFixed, 150.0f);
             ImGui::TableSetupColumn("Instruction", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+            ImGui::TableSetupColumn("Breakpoint Active", ImGuiTableColumnFlags_WidthFixed, 100.0f);
 
+            // TODO: get this shit outta here man, why am i disassembling everytime lol
             DisassembledInstruction disassembled_instructions[INVADERS_ROM_SIZE] {};
             size_t disassembled_rom_size = disassemble_rom(disassembled_instructions, INVADERS_ROM_SIZE, instructions, instructions_size);
 
@@ -164,11 +256,20 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
                   ImGui::SetScrollHereY(); 
               }
 
-              j += disassembled_instructions[i].byte_count;
-
               ImGui::PopID();
-
               ImGui::PopStyleColor(); 
+
+              ImGui::TableNextColumn();
+              ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.0f, 1.0f));
+              for(size_t k = 0; k < breakpoints_size; k++) {
+                  if(breakpoints[k] == j){
+                      ImGui::Text("*");
+                      break;
+                  }
+              }
+              ImGui::PopStyleColor(); 
+
+              j += disassembled_instructions[i].byte_count;
             }
             ImGui::EndTable();
 
@@ -193,8 +294,6 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
         ImGui::End();
     }
 
-#endif /* ifndef NDEBUG */
-
     // keeping this to figure out shit when i need to add more gui thingies
     // ImGui::ShowDemoWindow();
 
@@ -205,17 +304,27 @@ int InvadersGUI::update_frame(const CpuState& cpu_state, MemoryState& memory_sta
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    SDL_GL_SwapWindow(m_window);
+    SDL_GL_SwapWindow(m_debugger_window);
 
     return 0;
 }
+#else 
+int InvadersGUI::update_debugger_window(const CpuState&, const MemoryState&, unsigned int[], size_t, bool&, bool&) {
+    fprintf(stderr, "function \e[1m'%s()'\e[0m only works in debug mode.\n", __FUNCTION__);
+    return 1;
+}
+#endif /* ifndef NDEBUG */ 
 
 void InvadersGUI::destroy() {
+#ifndef NDEBUG
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
     SDL_GL_DeleteContext(m_gl_context);
-    SDL_DestroyWindow(m_window);
+    SDL_DestroyWindow(m_debugger_window);
+#endif
+    SDL_DestroyWindow(m_game_window);
+    SDL_DestroyRenderer(m_game_renderer);
     SDL_Quit();
 }

@@ -44,57 +44,58 @@ enum FlagBits : uint8_t {
   FLAG_CY = 1 << 0
 };
 
-enum AddressingMode : unsigned int {
-  ADDRESSING_MODE_REGISTER,
-  ADDRESSING_MODE_MEMORY,
-  ADDRESSING_MODE_IMMEDIATE,
-};
-
-typedef struct InterruptSystem {
-  bool enabled{false};
-  bool waiting{false};
-  uint8_t instruction {};
-} InterruptSystem;
-
-const uint8_t instruction_clock_cycles[NUM_OF_INSTRUCTIONS] = {
-  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
-  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
-  4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4,
-  4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
-  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
-  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
-  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
-  7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
-  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
-  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
-  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
-  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
-  5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 11, 11, 17, 7, 11,
-  5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 10, 11, 17, 7, 11,
-  5, 10, 10, 18, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11,
-  5, 10, 10, 4, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11
-};
-
-const std::unordered_map<uint8_t, unsigned int> regpairs_map = {
-  {0b00, REGISTER_PAIR_BC},
-  {0b01, REGISTER_PAIR_DE},
-  {0b10, REGISTER_PAIR_HL}
-};
-
-const std::unordered_map<uint8_t, unsigned int> regs_map = {
-  {0b111, REGISTER_A},
-  {0b000, REGISTER_B},
-  {0b001, REGISTER_C},
-  {0b010, REGISTER_D},
-  {0b011, REGISTER_E},
-  {0b100, REGISTER_H},
-  {0b101, REGISTER_L}
-}; 
-
 uint8_t condition_is_met(bool condition);
 uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry);
 
 class CPU {
+
+  enum AddressingMode : unsigned int {
+    ADDRESSING_MODE_REGISTER,
+    ADDRESSING_MODE_MEMORY,
+    ADDRESSING_MODE_IMMEDIATE,
+  };
+
+  typedef struct InterruptSystem {
+    bool enabled{false};
+    bool waiting{false};
+    uint8_t instruction {};
+  } InterruptSystem;
+
+  const uint8_t instruction_clock_cycles[NUM_OF_INSTRUCTIONS] = {
+    4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+    4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+    4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4,
+    4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+    5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+    5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+    7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+    4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+    4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+    5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 11, 11, 17, 7, 11,
+    5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 10, 11, 17, 7, 11,
+    5, 10, 10, 18, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11,
+    5, 10, 10, 4, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11
+  };
+
+  const std::unordered_map<uint8_t, unsigned int> regpairs_map = {
+    {0b00, REGISTER_PAIR_BC},
+    {0b01, REGISTER_PAIR_DE},
+    {0b10, REGISTER_PAIR_HL}
+  };
+
+  const std::unordered_map<uint8_t, unsigned int> regs_map = {
+    {0b111, REGISTER_A},
+    {0b000, REGISTER_B},
+    {0b001, REGISTER_C},
+    {0b010, REGISTER_D},
+    {0b011, REGISTER_E},
+    {0b100, REGISTER_H},
+    {0b101, REGISTER_L}
+  }; 
+
 public:
 
   bool running{true};
@@ -123,6 +124,8 @@ private:
 
   uint8_t m_psw = 0b00000010; // processor status word
   uint8_t m_regs[REGISTER_COUNT] {};
+
+  CpuState m_cpu_state {};
 
   uint8_t fetch_byte();
   uint16_t fetch_2bytes();

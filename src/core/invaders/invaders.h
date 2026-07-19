@@ -25,21 +25,21 @@ invaders.e 1800-1FFF
 
 /* Interface for anythting that needs access to the memory state */
 typedef struct MemoryState {
-  uint8_t rom_state[INVADERS_ROM_SIZE]; 
-  uint8_t ram_state[INVADERS_RAM_SIZE];
+  uint8_t* rom_state; 
+  uint8_t* ram_state;
 } MemoryState;
 
 class InvadersBus : public Bus {
 
 public:
 
-  InvadersBus();
-  ~InvadersBus();
+  InvadersBus() = default;
+  ~InvadersBus() = default;
   
   uint8_t memory_read(uint16_t addr) override;
   void memory_write(uint16_t addr, uint8_t data) override;
 
-  uint8_t io_read(uint16_t addr) override {}
+  uint8_t io_read(uint16_t addr) override {return 0;}
   void io_write(uint16_t addr, uint8_t data) override {}
 
   void reset() override {
@@ -53,6 +53,8 @@ private:
 
   uint8_t m_rom[INVADERS_ROM_SIZE] {}; 
   uint8_t m_ram[INVADERS_RAM_SIZE] {};
+
+  MemoryState m_memory_state {};
 };
 
 #endif /* SPACE_INVADERS_H */

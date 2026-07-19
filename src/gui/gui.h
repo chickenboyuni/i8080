@@ -24,13 +24,20 @@ class InvadersGUI {
     ~InvadersGUI() = default;
 
     int setup();
-    int update_frame(const CpuState& cpu_state, MemoryState& memory_state, bool& debugger_step, bool& debugger_cpu_running);
+    int update_game_window(const MemoryState& memory_state);
+    int update_debugger_window(const CpuState& cpu_state, const MemoryState& memory_state, 
+                     unsigned int breakpoints[], size_t breakpoints_size,
+                     bool& debugger_step, bool& debugger_cpu_running);
     void destroy();
 
   private:
-    SDL_Window* m_window = nullptr;
+    SDL_Window* m_debugger_window = nullptr;
     SDL_GLContext m_gl_context = nullptr;
 
+    SDL_Window* m_game_window = nullptr;
+    SDL_Renderer* m_game_renderer = nullptr;
+
+    int setup_debugger_gui();
 };
 
 int display_gui();

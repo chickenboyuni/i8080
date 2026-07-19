@@ -6,14 +6,10 @@
 constexpr unsigned int ram_offset = INVADERS_ROM_SIZE;
 constexpr unsigned int ram_mirror_offset = INVADERS_ROM_SIZE + INVADERS_RAM_SIZE;
 
-InvadersBus::InvadersBus() = default;
-InvadersBus::~InvadersBus() = default;
-
 MemoryState InvadersBus::get_memory_state() {
-  MemoryState memory_state {};
-  memcpy(memory_state.rom_state, m_rom, INVADERS_ROM_SIZE);
-  memcpy(memory_state.ram_state, m_ram, INVADERS_RAM_SIZE);
-  return memory_state;
+  m_memory_state.rom_state = m_rom;
+  m_memory_state.ram_state = m_ram;
+  return m_memory_state;
 }
 
 // TODO: Improve log messages to include pc and instruction where error occured

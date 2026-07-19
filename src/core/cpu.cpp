@@ -42,10 +42,9 @@ void CPU::reset() {
 
 // holy ugly
 CpuState CPU::get_cpu_state() {
-  CpuState cpu_state {};
-  cpu_state.pc = m_pc;
+  m_cpu_state.pc = m_pc;
 
-  cpu_state.rgs = { .a = m_regs[REGISTER_A],
+  m_cpu_state.rgs = { .a = m_regs[REGISTER_A],
                     .b = m_regs[REGISTER_B],
                     .c = m_regs[REGISTER_C],
                     .d = m_regs[REGISTER_D],
@@ -53,7 +52,7 @@ CpuState CPU::get_cpu_state() {
                     .h = m_regs[REGISTER_H],
                     .l = m_regs[REGISTER_L] };
 
-  cpu_state.rps = { .bc = get_register_pair_from_idx(REGISTER_PAIR_BC),
+  m_cpu_state.rps = { .bc = get_register_pair_from_idx(REGISTER_PAIR_BC),
                     .de = get_register_pair_from_idx(REGISTER_PAIR_DE),
                     .hl = get_register_pair_from_idx(REGISTER_PAIR_HL),
                     .sp = m_sp,
@@ -63,7 +62,7 @@ CpuState CPU::get_cpu_state() {
                              .cy = get_status_flag(FLAG_CY),
                              .ac = get_status_flag(FLAG_AC) }
   };
-  return cpu_state;
+  return m_cpu_state;
 }
 
 uint8_t CPU::fetch_byte(){
