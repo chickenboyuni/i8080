@@ -1,12 +1,26 @@
 #include<memory>
 #include<iostream>
 
-#include "../../common/binary_reader.h"
-#include "../cpu.h"
 #include "invaders.h"
+#include "shift_register.h"
+#include "../cpu.h"
+#include "../../common/binary_reader.h"
 #include "../../common/logging.h"
 #include "../../gui/gui.h"
 #include "../../disasm/disasm.h"
+
+/*
+ROM LAYOUT
+invaders.h 0000-07FF
+invaders.g 0800-0FFF
+invaders.f 1000-17FF
+invaders.e 1800-1FFF
+*/
+
+#define INVADERS_H_START_ADDRESS 0x0000
+#define INVADERS_G_START_ADDRESS 0x0800
+#define INVADERS_F_START_ADDRESS 0x1000
+#define INVADERS_E_START_ADDRESS 0x1800
 
 #define MAX_BREAKPOINTS 16
 #define REFRESH_RATE 60 // Hz
@@ -40,16 +54,17 @@ int main(int argc, char* argv[]){
     return EXIT_FAILURE;
   }
 
-  InvadersGUI igui {};
-  int gui_running = !igui.setup();
-
   uint8_t rom_file[INVADERS_ROM_SIZE] {};
   size_t rom_file_size = load_invaders_rom(rom_file, rom_path);
 
-  std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>();
-  bus->load_rom(rom_file, rom_file_size);
+  InvadersGUI igui {};
+  int gui_running = !igui.setup();
 
+  std::unique_ptr<ShiftRegister> shft_reg = std::make_unique<ShiftRegister>();
+  std::unique_ptr<InvadersBus> bus = std::make_unique<InvadersBus>(shft_reg.get());
   CPU cpu(bus.get());
+
+  bus->load_rom(rom_file, rom_file_size);
 
   while(gui_running) {
 

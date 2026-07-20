@@ -14,7 +14,7 @@ CORE_DIR = src/core
 
 IMGUI_DIR = modules/imgui
 
-SRCS = $(CORE_DIR)/cpu.cpp $(CORE_DIR)/invaders/main.cpp $(CORE_DIR)/invaders/invaders.cpp 
+SRCS = $(CORE_DIR)/cpu.cpp $(CORE_DIR)/invaders/main.cpp $(CORE_DIR)/invaders/invaders.cpp $(CORE_DIR)/invaders/shift_register.cpp 
 SRCS += $(DSM_DIR)/disasm.cpp
 SRCS += $(COMMON_DIR)/binary_reader.cpp 
 SRCS += $(GUI_DIR)/gui.cpp 
