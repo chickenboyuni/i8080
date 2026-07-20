@@ -6,10 +6,18 @@
 constexpr unsigned int ram_offset = INVADERS_ROM_SIZE;
 constexpr unsigned int ram_mirror_offset = INVADERS_ROM_SIZE + INVADERS_RAM_SIZE;
 
+InvadersBus::InvadersBus(ShiftRegister* shift_register) : m_shift_register(shift_register) {
+
+}
+
 MemoryState InvadersBus::get_memory_state() {
   m_memory_state.rom_state = m_rom;
   m_memory_state.ram_state = m_ram;
   return m_memory_state;
+}
+
+void InvadersBus::reset() {
+  memset(m_ram, 0, sizeof(m_ram));
 }
 
 // TODO: Improve log messages to include pc and instruction where error occured
@@ -70,6 +78,53 @@ void InvadersBus::memory_write(uint16_t addr, uint8_t data) {
   if(msn >= 0x4 && msn < 0x6){
     m_ram[addr-ram_mirror_offset] = data;
   }
+}
+
+uint8_t InvadersBus::io_read(uint8_t port) {
+
+  switch(port) {
+    case IPORT_INP0:
+      break;
+    case IPORT_INP1:
+      break;
+    case IPORT_INP2:
+      break;
+    case IPORT_SHFT_IN:
+      if(m_shift_register) {
+        return m_shift_register->get_shift_result_r();
+      }
+      LOG_ERROR("program trying to read from the shift register when it is not present");
+      break;
+  }
+
+  return 0;
+}
+
+void InvadersBus::io_write(uint8_t port, uint8_t data) {
+
+  switch(port) {
+    case OPORT_SHFT_AMNT:
+      if(m_shift_register) {
+        m_shift_register->set_shift_offset_w(data);
+        return;
+      }
+      LOG_ERROR("program trying to write to the shift register when it is not present");
+      break;
+    case OPORT_SOUND1:
+      break;
+    case OPORT_SHFT_DATA:
+      if(m_shift_register) {
+        m_shift_register->shift_data_w(data);
+        return;
+      }
+      LOG_ERROR("program trying to write to the shift register when it is not present");
+      break;
+    case OPORT_SOUND2:
+      break;
+    case OPORT_WATCHDOG:
+      break;
+  }
+
 }
 
 void InvadersBus::load_rom(uint8_t* rom_data, size_t rom_size){
