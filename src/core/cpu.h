@@ -100,7 +100,7 @@ public:
 
   bool running{true};
 
-  CPU(Bus* bus);
+  CPU(Bus* bus, uint16_t start_pc = 0x0000);
   ~CPU() = default;
 
   bool halted() { return m_halted; }; 

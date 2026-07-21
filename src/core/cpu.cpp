@@ -19,8 +19,7 @@ uint8_t bit_and(uint8_t lhs, uint8_t rhs) { return lhs & rhs; }
 uint8_t bit_xor(uint8_t lhs, uint8_t rhs) { return lhs ^ rhs; }
 uint8_t bit_or(uint8_t lhs, uint8_t rhs) { return lhs | rhs; }
 
-CPU::CPU(Bus* bus) : m_bus(bus) {
-  reset();
+CPU::CPU(Bus* bus, uint16_t start_pc) : m_bus(bus), m_pc(start_pc) {
 }
 
 void CPU::reset() {
@@ -33,7 +32,7 @@ void CPU::reset() {
 
   m_pc = 0x00;
   m_sp = 0x00;
-  m_psw = 0x0;
+  m_psw = 0b00000010;
 
   memset(m_regs, 0x0, REGISTER_COUNT);
 
@@ -495,6 +494,7 @@ void CPU::pchl() {
   m_pc = get_register_pair_from_idx(REGISTER_PAIR_HL);
 }
 
+// TODO: make a 16 bit version, also make aux carry nullable and possibly seperate the carry ref from the calculation carry
 uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry) {
   uint8_t res = 0;
   for(size_t i = 0; i < 8 ; i++){
