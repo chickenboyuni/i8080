@@ -45,7 +45,7 @@ enum FlagBits : uint8_t {
 };
 
 uint8_t condition_is_met(bool condition);
-uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry);
+uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int* aux_carry = nullptr);
 
 class CPU {
 
@@ -153,7 +153,7 @@ private:
   LIST_OF_FLAGS
 #undef X
 
-  bool get_status_flag(uint8_t flag_type);
+  uint8_t get_status_flag(uint8_t flag_type);
 
   void push_rp(uint8_t rp);
   void push_psw();
