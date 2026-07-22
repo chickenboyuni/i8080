@@ -36,6 +36,10 @@ class InvadersBus : public Bus {
 
 public:
 
+  uint8_t inp0 {};
+  uint8_t inp1 {};
+  uint8_t inp2 {};
+
   InvadersBus(ShiftRegister* shift_register = nullptr);
   ~InvadersBus() = default;
 

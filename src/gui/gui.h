@@ -18,10 +18,33 @@
 #include <windows.h>
 #endif
 
+enum INP1_INPUTS {
+    INP1_CREDIT = 1 << 0,
+    INP1_P2_START = 1 << 1,
+    INP1_P1_START = 1 << 2,
+    INP1_P1_SHOT = 1 << 4,
+    INP1_P1_LEFT = 1 << 5,
+    INP1_P1_RIGHT = 1 << 6,
+};
+
+enum INP2_INPUTS {
+    INP2_P2_SHOT = 1 << 4,
+    INP2_P2_LEFT = 1 << 5,
+    INP2_P2_RIGHT = 1 << 6,
+};
+
+typedef struct InvadersInputs {
+    uint8_t inp0;
+    uint8_t inp1;
+    uint8_t inp2;
+} InvadersInputs;
+
 class InvadersGUI {
   public:
     InvadersGUI() = default;
     ~InvadersGUI() = default;
+
+    InvadersInputs get_inputs() { return m_inputs; }
 
     int setup();
     int update_game_window(const MemoryState& memory_state);
@@ -31,6 +54,8 @@ class InvadersGUI {
     void destroy();
 
   private:
+    InvadersInputs m_inputs {.inp0 = 0b00001110, .inp1 = 0b00001000, .inp2 = 0b00000000};
+
     SDL_Window* m_debugger_window = nullptr;
     SDL_GLContext m_gl_context = nullptr;
 
@@ -39,8 +64,5 @@ class InvadersGUI {
 
     int setup_debugger_gui();
 };
-
-int display_gui();
-
 
 #endif /* GUI_H */

@@ -408,7 +408,7 @@ void CPU::cmp(uint8_t rg, unsigned int addressing_mode) {
 }
 
 void CPU::rotate_left(bool through_carry) {
-  uint8_t a_7 = m_regs[REGISTER_A] >> 7;
+  uint8_t a_7 = m_regs[REGISTER_A] & 0x80;
   uint8_t updated_a_0 = (through_carry) ? get_status_flag(FLAG_CY) : (a_7 >> 7);
   m_regs[REGISTER_A] = m_regs[REGISTER_A] << 1 | updated_a_0;
   update_carry_flag(a_7 >> 7);

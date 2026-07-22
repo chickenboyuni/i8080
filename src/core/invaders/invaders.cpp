@@ -83,12 +83,9 @@ void InvadersBus::memory_write(uint16_t addr, uint8_t data) {
 uint8_t InvadersBus::io_read(uint8_t port) {
 
   switch(port) {
-    case IPORT_INP0:
-      break;
-    case IPORT_INP1:
-      break;
-    case IPORT_INP2:
-      break;
+    case IPORT_INP0: return this->inp0;
+    case IPORT_INP1: return this->inp1;
+    case IPORT_INP2: return this->inp2;
     case IPORT_SHFT_IN:
       if(m_shift_register) {
         return m_shift_register->get_shift_result_r();

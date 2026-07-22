@@ -80,9 +80,7 @@ int InvadersGUI::setup() {
 
 int InvadersGUI::update_game_window(const MemoryState& memory_state) {
 
-#ifndef NDEBUG
     SDL_GL_MakeCurrent(m_game_window, nullptr);
-#endif
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -91,6 +89,74 @@ int InvadersGUI::update_game_window(const MemoryState& memory_state) {
         }
         if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(m_game_window)) {
             return 1;
+        }
+
+        if (event.type == SDL_KEYDOWN) {
+            switch(event.key.keysym.sym) {
+                case SDLK_c:
+                    m_inputs.inp1 |= INP1_CREDIT;
+                    break;
+                case SDLK_BACKSPACE:
+                    m_inputs.inp1 |= INP1_P2_START;
+                    break;
+                case SDLK_RETURN:
+                    m_inputs.inp1 |= INP1_P1_START;
+                    break;
+
+                case SDLK_SPACE:
+                    m_inputs.inp1 |= INP1_P1_SHOT;
+                    break;
+                case SDLK_LEFT:
+                    m_inputs.inp1 |= INP1_P1_LEFT;
+                    break;
+                case SDLK_RIGHT:
+                    m_inputs.inp1 |= INP1_P1_RIGHT;
+                    break;
+
+                case SDLK_s:
+                    m_inputs.inp2 |= INP2_P2_SHOT;
+                    break;
+                case SDLK_a:
+                    m_inputs.inp2 |= INP2_P2_LEFT;
+                    break;
+                case SDLK_d:
+                    m_inputs.inp2 |= INP2_P2_RIGHT;
+                    break;
+            }
+        }
+
+        if (event.type == SDL_KEYUP) {
+            switch(event.key.keysym.sym) {
+                case SDLK_c:
+                    m_inputs.inp1 &= ~INP1_CREDIT;
+                    break;
+                case SDLK_BACKSPACE:
+                    m_inputs.inp1 &= ~INP1_P2_START;
+                    break;
+                case SDLK_RETURN:
+                    m_inputs.inp1 &= ~INP1_P1_START;
+                    break;
+
+                case SDLK_SPACE:
+                    m_inputs.inp1 &= ~INP1_P1_SHOT;
+                    break;
+                case SDLK_LEFT:
+                    m_inputs.inp1 &= ~INP1_P1_LEFT;
+                    break;
+                case SDLK_RIGHT:
+                    m_inputs.inp1 &= ~INP1_P1_RIGHT;
+                    break;
+
+                case SDLK_s:
+                    m_inputs.inp2 &= ~INP2_P2_SHOT;
+                    break;
+                case SDLK_a:
+                    m_inputs.inp2 &= ~INP2_P2_LEFT;
+                    break;
+                case SDLK_d:
+                    m_inputs.inp2 &= ~INP2_P2_RIGHT;
+                    break;
+            }
         }
     }
 
