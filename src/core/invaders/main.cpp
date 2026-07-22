@@ -108,6 +108,11 @@ int main(int argc, char* argv[]){
           cpu.request_interrupt(0xd7);
           total_cycles = 0;
           interrupt_requested = false;
+
+          InvadersInputs kb_inputs = igui.get_inputs();
+          bus->inp0 = kb_inputs.inp0;
+          bus->inp1 = kb_inputs.inp1;
+          bus->inp2 = kb_inputs.inp2;
         }
 #ifdef NDEBUG
         if(!cpu.halted()) {
