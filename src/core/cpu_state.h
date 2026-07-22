@@ -3,11 +3,11 @@
 
 #pragma pack(push, 1)
 typedef struct StateFlagBits {
-  bool z:1;
-  bool s:1;
-  bool p:1;
-  bool cy:1;
-  bool ac:1;
+ uint8_t z:1;
+ uint8_t s:1;
+ uint8_t p:1;
+ uint8_t cy:1;
+ uint8_t ac:1;
 } StateFlagBits;
 #pragma pack(pop)
 

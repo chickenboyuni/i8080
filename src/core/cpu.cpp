@@ -19,8 +19,7 @@ uint8_t bit_and(uint8_t lhs, uint8_t rhs) { return lhs & rhs; }
 uint8_t bit_xor(uint8_t lhs, uint8_t rhs) { return lhs ^ rhs; }
 uint8_t bit_or(uint8_t lhs, uint8_t rhs) { return lhs | rhs; }
 
-CPU::CPU(Bus* bus) : m_bus(bus) {
-  reset();
+CPU::CPU(Bus* bus, uint16_t start_pc) : m_bus(bus), m_pc(start_pc) {
 }
 
 void CPU::reset() {
@@ -33,7 +32,7 @@ void CPU::reset() {
 
   m_pc = 0x00;
   m_sp = 0x00;
-  m_psw = 0x0;
+  m_psw = 0b00000010;
 
   memset(m_regs, 0x0, REGISTER_COUNT);
 
@@ -278,6 +277,15 @@ uint16_t CPU::get_register_pair_from_idx(unsigned int register_pair_idx) {
   return (m_regs[register_pair_idx] << 8) | m_regs[register_pair_idx+1];
 }
 
+bool calculate_parity(uint8_t data) {
+  uint8_t num_of_bits = 0;
+  for (int i = 0; i < 8; i++) {
+    num_of_bits += ((data >> i) & 1);
+  }
+
+  return (num_of_bits & 1) == 0;
+}
+
 uint8_t CPU::get_addressing_mode_data(uint8_t rg, uint8_t addressing_mode) {
   switch(addressing_mode) {
     case ADDRESSING_MODE_REGISTER: return get_register(rg);
@@ -289,19 +297,20 @@ uint8_t CPU::get_addressing_mode_data(uint8_t rg, uint8_t addressing_mode) {
 
 uint8_t condition_is_met(bool condition) {
   if(condition) {
-    return 0b11111111;
+    return 0xff;
   } 
   return 0;
 }
 
 #define X(flag, name) void CPU::update_##name##_flag(bool is_##name){ \
+                    m_psw = (m_psw & 0x00D7) | 0x02; \
                     m_psw &= FLAG_##flag ^ 0b11111111; \
                     m_psw |= FLAG_##flag & condition_is_met(is_##name); \
                   }
 LIST_OF_FLAGS
 #undef X
 
-bool CPU::get_status_flag(uint8_t flag_type) {
+uint8_t CPU::get_status_flag(uint8_t flag_type) {
   return !!(m_psw & flag_type);
 }
 
@@ -319,12 +328,13 @@ void CPU::push_psw() {
 }
 
 void CPU::pop_rp(uint8_t rp) {
-  set_register_pair(rp, m_bus->memory_read(m_sp), (m_bus->memory_read(m_sp+1)));
+  set_register_pair(rp, m_bus->memory_read(m_sp), m_bus->memory_read(m_sp+1));
   m_sp += 2;
 }
 
 void CPU::pop_psw() {
   m_psw = m_bus->memory_read(m_sp);
+  m_psw = (m_psw & 0x00D7) | 0x02; 
   m_regs[REGISTER_A] = m_bus->memory_read(m_sp+1);
   m_sp += 2;
 }
@@ -332,6 +342,11 @@ void CPU::pop_psw() {
 void CPU::xthl() {
   uint8_t bl = m_bus->memory_read(m_sp);
   uint8_t bh = m_bus->memory_read(m_sp+1);
+
+  uint16_t reg_hl = get_register_pair_from_idx(REGISTER_PAIR_HL);
+
+  m_bus->memory_write(m_sp, reg_hl & 0x00ff);
+  m_bus->memory_write(m_sp+1, reg_hl >> 8);
   set_register_pair(0b10, bl, bh);
 }
 
@@ -362,17 +377,19 @@ void CPU::hlt() {
 }
 
 void CPU::boolean_operation(uint8_t rg, unsigned int addressing_mode, uint8_t (*operator_func_ptr)(uint8_t, uint8_t)) {
-  unsigned int carry = 0;
-  unsigned int aux_carry = 0;
 
   uint8_t data = get_addressing_mode_data(rg, addressing_mode);
   m_regs[REGISTER_A] = (*operator_func_ptr)(m_regs[REGISTER_A], data);
 
   update_zero_flag(m_regs[REGISTER_A] == 0);
-  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
-  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
-  update_carry_flag(carry);
-  update_aux_carry_flag(aux_carry);
+  update_sign_flag(m_regs[REGISTER_A] >> 7);
+  update_parity_flag(calculate_parity(m_regs[REGISTER_A]));
+  update_carry_flag(0);
+  if(*operator_func_ptr == bit_and) {
+    update_aux_carry_flag(((m_regs[REGISTER_A] & 0x08) | (data & 0x08)) >> 3);
+  } else {
+    update_aux_carry_flag(0);
+  }
 }
 
 void CPU::cmp(uint8_t rg, unsigned int addressing_mode) {
@@ -381,28 +398,26 @@ void CPU::cmp(uint8_t rg, unsigned int addressing_mode) {
 
   uint8_t data = get_addressing_mode_data(rg, addressing_mode);
 
-  uint8_t result = binary_add(m_regs[REGISTER_A], ~data + 1, carry, aux_carry);
+  uint8_t result = binary_add(m_regs[REGISTER_A], ~data + 1, carry, &aux_carry);
 
   update_zero_flag(m_regs[REGISTER_A] == data);
-  update_sign_flag(result & 0b10000000);
-  update_parity_flag((result % 2) == 0);
+  update_sign_flag(result >> 7);
+  update_parity_flag(calculate_parity(result));
   update_carry_flag(m_regs[REGISTER_A] < data);
-  update_aux_carry_flag(aux_carry);
+  update_aux_carry_flag((m_regs[REGISTER_A] ^ result ^ data) & 0x10);
 }
 
 void CPU::rotate_left(bool through_carry) {
-  uint8_t a_7 = m_regs[REGISTER_A] & 0b10000000;
+  uint8_t a_7 = m_regs[REGISTER_A] >> 7;
   uint8_t updated_a_0 = (through_carry) ? get_status_flag(FLAG_CY) : (a_7 >> 7);
-  m_regs[REGISTER_A] = m_regs[REGISTER_A] << 1;
-  m_regs[REGISTER_A] = m_regs[REGISTER_A] | updated_a_0;
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] << 1 | updated_a_0;
   update_carry_flag(a_7 >> 7);
 }
 
 void CPU::rotate_right(bool through_carry) {
   uint8_t a_0 = m_regs[REGISTER_A] & 0b00000001;
   uint8_t updated_a_7 = (through_carry) ? (get_status_flag(FLAG_CY) << 7) : (a_0 << 7);
-  m_regs[REGISTER_A] = m_regs[REGISTER_A] >> 1;
-  m_regs[REGISTER_A] = m_regs[REGISTER_A] | updated_a_7;
+  m_regs[REGISTER_A] = m_regs[REGISTER_A] >> 1 | updated_a_7;
   update_carry_flag(a_0);
 }
 
@@ -495,14 +510,16 @@ void CPU::pchl() {
   m_pc = get_register_pair_from_idx(REGISTER_PAIR_HL);
 }
 
-uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int& aux_carry) {
+uint8_t binary_add(uint8_t a, uint8_t b, unsigned int& carry, unsigned int* aux_carry) {
   uint8_t res = 0;
   for(size_t i = 0; i < 8 ; i++){
     uint8_t bit_a = a & (1 << i);
     uint8_t bit_b = b & (1 << i);
     res = res | ((bit_a ^ bit_b) ^ carry); 
     carry = ((bit_a & bit_b) | (bit_a & carry) | (bit_b & carry)) << 1; 
-    if(i == 3) { aux_carry = !!carry; } // If the instruction caused a carry out of bit 3 and into bit 4, the auxiliary carry is set
+    if(i == 3 && aux_carry) {
+      *aux_carry = !!(carry & 0x10); 
+    } // If the instruction caused a carry out of bit 3 and into bit 4, the auxiliary carry is set
   }
   carry = !!carry; // if carry >= 1, let it just be 1
   return res;
@@ -513,14 +530,15 @@ void CPU::add(uint8_t rg, unsigned int addressing_mode, bool with_carry){
   unsigned int aux_carry = 0;
 
   uint8_t data = get_addressing_mode_data(rg, addressing_mode);
-  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, aux_carry);
+
   if(with_carry) {
-    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], get_status_flag(FLAG_CY), carry, aux_carry);
+    data += get_status_flag(FLAG_CY);
   }
+  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, &aux_carry);
 
   update_zero_flag(m_regs[REGISTER_A] == 0);
-  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
-  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_sign_flag(m_regs[REGISTER_A] >> 7);
+  update_parity_flag(calculate_parity(m_regs[REGISTER_A]));
   update_carry_flag(carry);
   update_aux_carry_flag(aux_carry);
 }
@@ -530,18 +548,17 @@ void CPU::sub(uint8_t rg, unsigned int addressing_mode, bool with_borrow){
   unsigned int aux_carry = 0;
 
   uint8_t data = get_addressing_mode_data(rg, addressing_mode);
-  // two's complement
-  data = ~data + 1;
 
-  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data, carry, aux_carry);
   if(with_borrow) {
-    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], ~((uint8_t)get_status_flag(FLAG_CY)) + 1, carry, aux_carry);
+    data += get_status_flag(FLAG_CY);
   }
 
-  update_zero_flag(m_regs[REGISTER_A] == 0);
-  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
-  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
-  update_carry_flag(carry);
+  m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], data = ~data + 1, carry, &aux_carry);
+
+  update_zero_flag(m_regs[REGISTER_A] == data);
+  update_sign_flag(m_regs[REGISTER_A] >> 7);
+  update_parity_flag(calculate_parity(m_regs[REGISTER_A]));
+  update_carry_flag(m_regs[REGISTER_A] < data);
   update_aux_carry_flag(aux_carry);
 }
 
@@ -550,13 +567,17 @@ void CPU::inr_r(uint8_t rg, bool decrement) {
   unsigned int aux_carry = 0;
   uint8_t increment_value = (decrement) ? 0xff : 0x01;
 
-  set_register(rg, binary_add(get_register(rg), increment_value, carry, aux_carry));
+  set_register(rg, binary_add(get_register(rg), increment_value, carry, &aux_carry));
 
   uint8_t result = get_register(rg);
   update_zero_flag(result == 0);
-  update_sign_flag(result & 0b10000000);
-  update_parity_flag((result % 2) == 0);
-  update_aux_carry_flag(aux_carry);
+  update_sign_flag(result >> 7);
+  update_parity_flag(calculate_parity(result));
+  if(decrement) {
+    update_aux_carry_flag(!((result & 0x0f) == 0x0f));
+  } else {
+    update_aux_carry_flag(aux_carry);
+  }
 }
 
 void CPU::inr_m(bool decrement) {
@@ -566,40 +587,42 @@ void CPU::inr_m(bool decrement) {
 
   m_bus->memory_write(
                       get_register_pair_from_idx(REGISTER_PAIR_HL),
-                      binary_add(m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL)), increment_value, carry, aux_carry)
+                      binary_add(m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL)), increment_value, carry, &aux_carry)
                      );
 
   uint8_t result = m_bus->memory_read(get_register_pair_from_idx(REGISTER_PAIR_HL));
   update_zero_flag(result == 0);
-  update_sign_flag(result & 0b10000000);
-  update_parity_flag((result % 2) == 0);
-  update_aux_carry_flag(aux_carry);
+  update_sign_flag(result >> 7);
+  update_parity_flag(calculate_parity(result));
+  if(decrement) {
+    update_aux_carry_flag(!((result & 0x0f) == 0x0f));
+  } else {
+    update_aux_carry_flag(aux_carry);
+  }
 }
 
 void CPU::inx(uint8_t rp, bool decrement) {
   unsigned int carry = 0;
-  unsigned int aux_carry = 0;
 
   uint8_t rl_value = 0;
   uint8_t rh_value = 0;
 
   if(decrement){
-    rl_value = binary_add(get_register_pair(rp), 0xff, carry, aux_carry);
-    rh_value = binary_add(get_register_pair(rp) >> 8, 0xff, carry, aux_carry);
+    rl_value = binary_add(get_register_pair(rp), 0xff, carry);
+    rh_value = binary_add(get_register_pair(rp) >> 8, 0xff, carry);
   } else {
-    rl_value = binary_add(get_register_pair(rp), 1, carry, aux_carry);
-    rh_value = binary_add(get_register_pair(rp) >> 8, 0, carry, aux_carry);
+    rl_value = binary_add(get_register_pair(rp), 1, carry);
+    rh_value = binary_add(get_register_pair(rp) >> 8, 0, carry);
   }
   set_register_pair(rp, rl_value, rh_value);
 }
 
 void CPU::dad(uint8_t rp) {
   unsigned int carry = 0;
-  unsigned int aux_carry = 0;
 
   uint16_t rp_content = get_register_pair(rp);
-  uint8_t rl_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL), rp_content, carry, aux_carry);
-  uint8_t rh_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL) >> 8, rp_content >> 8, carry, aux_carry);
+  uint8_t rl_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL), rp_content, carry);
+  uint8_t rh_value = binary_add(get_register_pair_from_idx(REGISTER_PAIR_HL) >> 8, rp_content >> 8, carry);
   // 0b10 is the bit pattern for register pair HL
   set_register_pair(0b10, rl_value, rh_value);
   update_carry_flag(carry);
@@ -610,19 +633,18 @@ void CPU::daa() {
   unsigned int aux_carry = 0;
 
   if((m_regs[REGISTER_A] & 0x0f) > 0x09 || get_status_flag(FLAG_AC)){
-    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x06, carry, aux_carry);
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x06, carry, &aux_carry);
   }
-  unsigned int aux_carry_copy = aux_carry;
   carry = 0;
   if((m_regs[REGISTER_A] >> 4) > 0x09 || get_status_flag(FLAG_CY)){
-    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x60, carry, aux_carry);
+    m_regs[REGISTER_A] = binary_add(m_regs[REGISTER_A], 0x60, carry);
   }
-  
+
   update_zero_flag(m_regs[REGISTER_A] == 0);
-  update_sign_flag(m_regs[REGISTER_A] & 0b10000000);
-  update_parity_flag((m_regs[REGISTER_A] % 2) == 0);
+  update_sign_flag(m_regs[REGISTER_A] >> 7);
+  update_parity_flag(calculate_parity(m_regs[REGISTER_A]));
   update_carry_flag(carry);
-  update_aux_carry_flag(aux_carry_copy);
+  update_aux_carry_flag(aux_carry);
 }
 
 void CPU::shld(){

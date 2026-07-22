@@ -1,5 +1,6 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -Imodules/imgui_club/imgui_memory_editor -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -Wall -Wextra -DNDEBUG
+TEST_CXXFLAGS = -std=c++17 -Wall -Wextra
 DEBUG_CXXFLAGS = $(filter-out -DNDEBUG, $(CXXFLAGS)) -g
 
 SRC_DIR = src
@@ -24,10 +25,13 @@ IMGUI_SRCS = $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/img
 IMGUI_SRCS += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 IMGUI_OBJS := $(patsubst $(IMGUI_DIR)/%.cpp, $(BUILD_DIR)/imgui/%.o, $(IMGUI_SRCS)) 
 
+TEST_SRCS = $(CORE_DIR)/cpu.cpp $(CORE_DIR)/cpu-test/main.cpp $(COMMON_DIR)/binary_reader.cpp 
+TEST_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(TEST_SRCS)) 
+
 DEBUG_OBJS := $(patsubst $(SRC_DIR)/%.cpp, $(DEBUG_BUILD_DIR)/%.o, $(SRCS)) 
 
 TARGET = $(BIN_DIR)/main
-DSM_TARGET = $(BIN_DIR)/dsm
+TEST_TARGET = $(BIN_DIR)/cpu_tests
 
 DEBUG_TARGET = $(BIN_DIR)/dbgmain
 
@@ -57,12 +61,17 @@ ifeq ($(OS), Windows_NT)
 endif
 
 all: $(TARGET)
-disasm: $(DSM_TARGET)
+test: $(TEST_TARGET)
 
 $(TARGET): $(IMGUI_OBJS) $(OBJS)
 	@mkdir -p $(BIN_DIR)  
 	$(CXX) $(CXXFLAGS) $(LIBS) -o $(TARGET) $(OBJS) $(IMGUI_OBJS) 
 	@echo "Built target: $@"  
+
+$(TEST_TARGET): $(TEST_OBJS)
+	@mkdir -p $(BIN_DIR)  
+	$(CXX) $(TEST_CXXFLAGS) -o $(TEST_TARGET) $(TEST_OBJS)
+	@echo "Built cpu tests: $@"  
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(@D)
